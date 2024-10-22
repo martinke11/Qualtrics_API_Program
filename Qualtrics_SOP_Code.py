@@ -28,7 +28,7 @@ from collections import Counter
 
 #f = open('/Users/kieranmartin/Documents/SOI Data/Python/Qualtrics_API_Program/qualtrics_credentials.txt')
 
-f = open('C:\\Users\\484843\\Documents\\GitHub\\Qualtrics_API_Program\\qualtrics_credentials.txt')
+f = open('C:\\Users\\484843\\Documents\\GitHub\\Qualtrics_API_Program\\copa_qualtrics_credentials.txt')
 # read the json
 creds = json.load(f)
 
@@ -43,7 +43,7 @@ data_center = creds.get('DataCenter')
 
 # Extract the Survey ID based on the name of the Survey
 #SurveyName = 'Community Health Worker (CHW) Training: Pre-Training Survey'
-SurveyName = 'Spring 2024 COPA People’s Academy: Post-Participation'
+SurveyName = "Spring 2024 COPA People's Academy: Post-Participation Survey"
 # SurveyName = 'Current Y2 HIG Health Evaluation Report 2022-23'
 
 
@@ -397,7 +397,8 @@ for original_column, result_df in result_dict.items():
     doc.add_page_break()
 
 # Save the Word document
-doc.save('/Users/kieranmartin/Documents/SOI Data/Python/Qualtrics_API_Program/Reports/lifestle3.docx')
+#doc.save('/Users/kieranmartin/Documents/SOI Data/Python/Qualtrics_API_Program/Reports/lifestle3.docx')
+doc.save('C:\\Users\\484843\\Documents\\GitHub\\Qualtrics_API_Program\\Reports\\test.docx')
 
 
 # # Create bar charts using the dictionary created above
