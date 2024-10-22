@@ -1,0 +1,38 @@
+{"surveyDefinitionManipulation": {
+    "copySurveyQuestions": "true",
+    "editSurveyFlow": "true",
+    "useBlocks": "true",
+    "useSkipLogic": "true",
+    "useConjoint": "true",
+    "useTriggers": "true",
+    "useQuotas": "true",
+    "setSurveyOptions": "true",
+    "editQuestions": "true",
+    "deleteSurveyQuestions": "true",
+    "useTableOfContents": "true",
+    "useAdvancedQuotas": "true",
+"viewSurveys": "true"
+},
+"surveyManagement": {
+    "editSurveys": "true",
+    "activateSurveys": "true",
+    "deactivateSurveys": "true",
+    "copySurveys": "true",
+    "distributeSurveys": "true",
+    "deleteSurveys": "true",
+    "translateSurveys": "true"
+},
+"response": {
+    "editSurveyResponses": "true",
+    "createResponseSets": "true",
+    "viewResponseId": "true",
+    "useCrossTabs": "true",
+    "useScreenouts": "true"
+},
+"result": {
+    "downloadSurveyResults": "true",
+    "viewSurveyResults": "true",
+    "filterSurveyResults": "true",
+    "viewPersonalData": "true"
+}  
+}
