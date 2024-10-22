@@ -14,7 +14,9 @@ from docx.shared import Pt
 import json
 import datetime
 import os
-os.chdir('/Users/kieranmartin/Documents/SOI Data/Python/Qualtrics_API_Program')
+#os.chdir('/Users/kieranmartin/Documents/SOI Data/Python/Qualtrics_API_Program')
+os.chdir('C:\\Users\\484843\\Documents\\GitHub\\Qualtrics_API_Program')
+
 import QualAPI as qa
 import requests
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -24,7 +26,9 @@ from collections import Counter
 # Inputs for wrapper function 
 # Opening JSON file
 
-f = open('/Users/kieranmartin/Documents/SOI Data/Python/Qualtrics_API_Program/qualtrics_credentials.txt')
+#f = open('/Users/kieranmartin/Documents/SOI Data/Python/Qualtrics_API_Program/qualtrics_credentials.txt')
+
+f = open('C:\\Users\\484843\\Documents\\GitHub\\Qualtrics_API_Program\\qualtrics_credentials.txt')
 # read the json
 creds = json.load(f)
 
@@ -39,7 +43,7 @@ data_center = creds.get('DataCenter')
 
 # Extract the Survey ID based on the name of the Survey
 #SurveyName = 'Community Health Worker (CHW) Training: Pre-Training Survey'
-SurveyName = 'Lifestyle Survey -Fitness Programming'
+SurveyName = 'Spring 2024 COPA People’s Academy: Post-Participation'
 # SurveyName = 'Current Y2 HIG Health Evaluation Report 2022-23'
 
 
@@ -76,7 +80,7 @@ elif len(Inds) == 1:
 SurveyId = SurveyDF.loc[Indx, 'id']
 
 # Get the Response Export
-RX = qa.getSurveyRX(base_url, tkn, SurveyId)
+RX = qa.export_survey_responses(base_url, tkn, SurveyId)
 # Get the exportProgressId
 EPid = RX.get('result').get('progressId')
 
@@ -85,7 +89,7 @@ EPid = RX.get('result').get('progressId')
 fid = ""
 while len(fid) == 0:    
     # Check the progress 
-    RXp = qa.getSurveyRXp(base_url, tkn, SurveyId, EPid)
+    RXp = qa.get_response_export_progress(base_url, tkn, SurveyId, EPid)
 
     # # Check if the percent complete is 100
     if RXp.get('result').get('percentComplete') == 100:
@@ -105,7 +109,7 @@ SurveyJ = Survey.json()
 Responses = SurveyJ.get('responses')
 
 if len(Responses) > 0:
-    Results = qa.OrganizeResponses(Responses)
+    Results = qa.organize_responses(Responses)
 else:
     print('There is no data')
 
@@ -125,7 +129,7 @@ Results = Results.reset_index(drop = True)
 
 
 # Get the survey questions
-SurveyQs = qa.getSurveyQs(base_url, tkn, SurveyId)
+SurveyQs = qa.get_survey_questions(base_url, tkn, SurveyId)
 
 # Map the Survey Qs so that they can match with column headers of Results
 SurveyQsR = SurveyQs.get('result')
@@ -133,10 +137,10 @@ SurveyQsR = SurveyQs.get('result')
 QDic = SurveyQsR.get('questions')
 
 # Get the Column Data Types
-QDF, QVals = qa.ExtractColumnDataTypes(QDic, Results, base_url, tkn, SurveyId)
+QDF, QVals = qa.extract_column_data_types(QDic, Results, base_url, tkn, SurveyId)
 
 # Get the Different Data Types for reporting purposes
-QDF = qa.DicDataType(QDF, QVals)
+QDF = qa.create_data_type_dictionary(QDF, QVals)
 
 ###############################################################################
 # Using the QDF you can extract only those columns with questions

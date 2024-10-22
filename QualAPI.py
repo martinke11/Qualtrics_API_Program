@@ -230,7 +230,7 @@ def get_survey_list(base_url, tkn):
     return SurveyDF
 
 # Pull survey questions
-def getSurveyQs(base_url, tkn, SurveyId):
+def get_survey_questions(base_url, tkn, SurveyId):
     #set the URL
     s = '{0}/API/v3/surveys/{1}'.format(base_url, SurveyId)
     # Pull the survey data
@@ -261,7 +261,7 @@ def getSurveyQs(base_url, tkn, SurveyId):
     
 
 # Pulls a little more information than the survey Qs
-def getFullSurvey(base_url, tkn, SurveyId):
+def get_all_survey_info(base_url, tkn, SurveyId):
     # set the url
     s = '{0}/API/v3/survey-definitions/{1}'.format(base_url, SurveyId)
     # Pull the survey data
@@ -273,7 +273,7 @@ def getFullSurvey(base_url, tkn, SurveyId):
     return r
 
 # Post the survey Response Export
-def getSurveyRX(base_url, tkn, SurveyId):
+def export_survey_responses(base_url, tkn, SurveyId):
     # set the url
     s = '{0}/API/v3/surveys/{1}/export-responses'.format(base_url, SurveyId)
     # Pull the survey data
@@ -286,7 +286,7 @@ def getSurveyRX(base_url, tkn, SurveyId):
     return r
 
 # Function to get the Response Export Progress
-def getSurveyRXp(base_url, tkn, SurveyId, EPid):
+def get_response_export_progress(base_url, tkn, SurveyId, EPid):
     # set the url
     s = '{0}/API/v3/surveys/{1}/export-responses/{2}'.format(base_url, SurveyId, EPid)
     # Pull the survey data
@@ -299,7 +299,7 @@ def getSurveyRXp(base_url, tkn, SurveyId, EPid):
 
 
 
-def getGroups(base_url, tkn):
+def get_groups(base_url, tkn):
     # set the url
     s = '{0}/API/v3/groups'.format(base_url)
     # Pull the survey data
@@ -311,7 +311,7 @@ def getGroups(base_url, tkn):
     return r
 
 # Share a Survey with a group or person
-def postCollabs(base_url, tkn, SurveyId, data):
+def share_survey(base_url, tkn, SurveyId, data):
     # set the url
     s = '{0}/API/v3/surveys/{1}/permissions/collaborations'.format(base_url, SurveyId)
     # Pull the survey data
@@ -325,7 +325,7 @@ def postCollabs(base_url, tkn, SurveyId, data):
 
 
 # Share a Survey with a group or person
-def getWhoAmI(base_url, tkn): 
+def get_user_identity(base_url, tkn): 
     # set the url
     s = '{0}/API/v3/whoami'.format(base_url)
     # Pull the survey data
@@ -338,7 +338,7 @@ def getWhoAmI(base_url, tkn):
 
 REcollabJson = open('RandE_Collaborator.json')
 
-def OrganizeResponses(Responses):
+def organize_responses(Responses):
     # DF = Dataframe of the Responses
     # for each response extract and put in a dataFrame
     DF = []
@@ -419,7 +419,7 @@ def OrganizeResponses(Responses):
     
     return DFN
 
-def CleanQs(QuestionsDF):
+def clean_question_df(QuestionsDF):
     # Clean the questions DF
     # Set the pattern that contains superflous text formating
     pat = r'(?=\<).+?(?<=\>)'
@@ -440,7 +440,7 @@ def CleanQs(QuestionsDF):
         QuestionsDF.loc[i, 'QText'] = NewT
     return QuestionsDF
         
-def ExtractColumnDataTypes(QDic, RDF, base_url, tkn, SurveyId):
+def extract_column_data_types(QDic, RDF, base_url, tkn, SurveyId):
     # pull the column names 
     ColNames = RDF.columns
     # Find the columns that start with QID
@@ -587,7 +587,7 @@ def ExtractColumnDataTypes(QDic, RDF, base_url, tkn, SurveyId):
                         QKeep.append(True)                            
                     else:
                         # Get the mapping
-                        FSurv = getFullSurvey(base_url, tkn, SurveyId)
+                        FSurv = get_all_survey_info(base_url, tkn, SurveyId)
                         # Pull the results
                         CO = FSurv.get('result').get('Questions').get(CurSpl[QIDind[0]]).get('ChoiceOrder')
                         # Now Index the substring and subtract 1
@@ -760,12 +760,12 @@ def ExtractColumnDataTypes(QDic, RDF, base_url, tkn, SurveyId):
         # Data frame of the values to questions
         QuestionValues = pd.DataFrame(dic)
         
-        QuestionsDF = CleanQs(QuestionsDF)
+        QuestionsDF = clean_question_df(QuestionsDF)
         
         return QuestionsDF, QuestionValues
     
     
-def DicDataType(QDF, QVals):
+def create_data_type_dictionary(QDF, QVals):
     ###############################################################################
     
     # I am just going to do some partial coding. Please incorporate where you see 
