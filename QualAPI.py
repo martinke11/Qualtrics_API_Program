@@ -15,239 +15,357 @@ import numpy as np
 import re
 
 
-# Build a function to build out the data argument
-# Convert keyword arguments to a string
-def convert_kwargs_to_string(**kwargs): # formerly DefData
-    # Convert to a string
-    r = str(kwargs)
-    return r
+def return_kwargs_as_dict(**kwargs):
+    """
+    Returns the keyword arguments as a dictionary.
 
-# Format a dictionary for JSON-like representation
-def format_dict_for_json(dic): # formally DefData1
-    # Some data formats in Qulatrics are different. So need to change the 
-    # format
-    # Input must be a dictionary.
-    # First convert to a string
-    r = str(dic)
-    # Now change the quotes around
-    r = r.replace("'", '"')
-    return r
+    Args:
+        **kwargs: Arbitrary keyword arguments.
 
-def return_kwargs_as_dict(**kwargs): # formally DefDataT
-    # Convert to a dictionary
-    r = kwargs
-    return r
+    Returns:
+        dict: A dictionary containing the keyword arguments.
+    """
+    kwargs_dict = kwargs
+    return kwargs_dict
 
-# API functions
-# Get a token that will last an hour
+
 def get_token(base_url, client_id, client_secret, data):
-    # list of scopes:
-    # manage:activity_logs
-    # manage:all
-    # manage:contact_frequency_rules
-    # manage:contact_transactions
-    # manage:customer_data_requests
-    # manage:directories
-    # manage:directory_contacts
-    # manage:distributions
-    # manage:divisions
-    # manage:erasure_requests
-    # manage:groups
-    # manage:libraries
-    # manage:mailing_list_contacts
-    # manage:mailing_lists
-    # manage:organizations
-    # manage:participants
-    # manage:samples
+    """
+   Requests an OAuth2 token that will last for one hour.
+
+   Args:
+       base_url (str): The base URL for the API.
+       client_id (str): The client ID for authentication.
+       client_secret (str): The client secret for authentication.
+       data (dict): A dictionary containing data for the token request, including
+                    grant type and other relevant parameters.
+
+   Returns:
+       dict: A JSON object containing the token and related information.
+
+   Available scopes:
+       - manage:activity_logs
+       - manage:all
+       - manage:contact_frequency_rules
+       - manage:contact_transactions
+       - manage:customer_data_requests
+       - manage:directories
+       - manage:directory_contacts
+       - manage:distributions
+       - manage:divisions
+       - manage:erasure_requests
+       - manage:groups
+       - manage:libraries
+       - manage:mailing_list_contacts
+       - manage:mailing_lists
+       - manage:organizations
+       - manage:participants
+       - manage:samples
+       - manage:subscriptions
+       - manage:survey_responses
+       - manage:survey_sessions
+       - manage:surveys
+       - read:activity_logs
+       - read:contact_frequency_rules
+       - read:contact_transactions
+       - read:directories
+       - read:directory_contacts
+       - read:distributions
+       - read:divisions
+       - read:groups
+       - read:imported_data_projects
+       - read:libraries
+       - read:mailing_list_contacts
+       - read:mailing_lists
+       - read:organizations
+       - read:participants
+       - read:samples
+       - read:subscriptions
+       - read:survey_responses
+       - read:survey_sessions
+       - read:surveys
+       - write:automations
+       - write:contact_frequency_rules
+       - write:contact_transactions
+       - write:directory_contacts
+       - write:distributions
+       - write:divisions
+       - write:embedded_dashboards
+       - write:embedded_xid_profile_cards
+       - write:groups
+       - write:imported_data_projects
+       - write:libraries
+       - write:mailing_list_contacts
+       - write:mailing_lists
+       - write:participants
+       - write:samples
+       - write:subscriptions
+       - write:survey_responses
+       - write:survey_sessions
+       - write:surveys
+   """
     manage:subscriptions
     manage:survey_responses
     manage:survey_sessions
     manage:surveys
-    # manage:tickets
-    # manage:users
-    # openid
-    # profile
-    # read:activity_logs
-    # read:contact_frequency_rules
-    # read:contact_transactions
-    # read:directories
-    # read:directory_contacts
-    # read:distributions
-    # read:divisions
-    # read:groups
-    # read:imported_data_projects
-    # read:libraries
-    # read:mailing_list_contacts
-    # read:mailing_lists
-    # read:organizations
-    # read:participants
-    # read:samples
     read:subscriptions
     read:survey_responses
     read:survey_sessions
     read:surveys
-    # read:tickets
-    # read:users
-    # write:automations
-    # write:contact_frequency_rules
-    # write:contact_transactions
-    # write:directory_contacts
-    # write:distributions
-    # write:divisions
-    # write:embedded_dashboards
-    # write:embedded_xid_profile_cards
-    # write:groups
-    # write:imported_data_projects
-    # write:libraries
-    # write:mailing_list_contacts
-    # write:mailing_lists
-    # write:participants
-    # write:samples
     write:subscriptions
     write:survey_responses
     write:survey_sessions
     write:surveys
-    # write:tickets
-    # write:users
-    tknURL = base_url + "/oauth2/token"
+
+    token_url = base_url + "/oauth2/token"
     
-    r = requests.post(tknURL, auth=(client_id, client_secret), data=data)
+    response = requests.post(token_url, auth=(client_id, client_secret), data=data)
     
-    return r.json()
+    return response.json()
 
-# Get a list of Users
-def get_users(base_url, tkn):
-    # set the url
-    s = '{0}/API/v3/users'.format(base_url)
-    # Pull the survey data
-    r = requests.get(s, 
-                     headers={"Content-Type": "application/json",
-                              "Authorization": "Bearer " + tkn}) 
-    # convert the data into a more readable format
-    r = r.json()    
-    return r
 
-# get a surveys metadata
-def get_survey_meta(base_url, tkn, SurveyId):
-    # set the url
-    s = '{0}/API/v3/survey-definitions/{1}/metadata'.format(base_url, SurveyId)
-    # Pull the survey data
-    r = requests.get(s, 
-                     headers={"Content-Type": "application/json",
-                              "Authorization": "Bearer " + tkn}) 
-    # convert the data into a more readable format
-    r = r.json()    
-    return r
-
-# Change a survey's metadata
-def change_survey_meta(base_url, tkn, SurveyId, data):
-    # set the url
-    s = '{0}/API/v3/survey-definitions/{1}/metadata'.format(base_url, SurveyId)
-    # Pull the survey data
-    r = requests.put(s, 
-                     headers={"Content-Type": "application/json",
-                              "Authorization": "Bearer " + tkn},
-                     data=data)
-    # convert the data into a more readable format
-    r = r.json()    
-    return r
-
-# Update a survey
-def update_survey(base_url, tkn, SurveyId, data):
-    # set the url
-    s = '{0}/API/v3/surveys/{1}'.format(base_url, SurveyId)
-    # Pull the survey data
-    r = requests.put(s, 
-                     headers={"Content-Type": "application/json",
-                              "Authorization": "Bearer " + tkn},
-                     data=data)
-    # convert the data into a more readable format
-    r = r.json()    
-    return r
-
-# get the survey responses
-def get_survey_responses(base_url, tkn, SurveyId, fid):
-    # set the url
-    s = '{0}/API/v3/surveys/{1}/export-responses/{2}/file'.format(base_url, SurveyId, fid)
-    # Pull the survey data
-    r = requests.get(s, 
-                     headers={"Content-Type": "application/json",
-                              "Authorization": "Bearer " + tkn})
-    # convert the data into a more readable format
-    #r = r.json()
-    return r 
-
-# Pull the survey list
-def get_survey_list(base_url, tkn):
-    # extract all the surveys and their ids
-    # Set Next Page to Data Type None Flag to True 
-    Flag = True
+def get_survey_list(base_url, token):
+    """
+    Retrieve a complete list of surveys from the Qualtrics API, handling pagination if necessary.
     
-    # Set a counter
+    This function makes repeated API requests to the Qualtrics survey endpoint to retrieve all surveys.
+    It handles the pagination of results by checking for a "nextPage" key in the API response, which 
+    provides an offset for subsequent pages of data. The function returns the complete survey list in 
+    the form of a Pandas DataFrame.
+    
+    Args:
+        base_url (str): The base URL for the Qualtrics API.
+        token (str): The API token used for authorization.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the complete list of surveys with their details.
+        
+    Raises:
+        requests.exceptions.RequestException: If there's an error with the API request.
+    """
+    # Initialize the flag to track pagination and the offset for next pages
+    flag = True
     count = 0
+    offset = ""
     
-    # Set cnum to blank
-    cnum = ""
+    while flag:
+        # Determine the URL based on whether it's the first page or a subsequent page
+        if count == 0:
+            url = '{0}/API/v3/surveys'.format(base_url)
+        else:
+            url = '{0}/API/v3/surveys?offset={1}'.format(base_url, offset)
+        
+        # Make the API request
+        response = requests.get(url, headers={"Authorization": "Bearer " + token})
+        response_json = response.json()
+
+        # Extract the current page of survey results into a DataFrame
+        current_page_df = pd.DataFrame(response_json.get("result").get("elements"))
+        
+        # For the first page, initialize the DataFrame; for others, append to it
+        if count == 0:
+            survey_list_df = current_page_df
+        else:
+            survey_list_df = pd.concat([survey_list_df, current_page_df])
+            
+        # Check if there's a next page and update flag and offset accordingly
+        if response_json.get("result").get("nextPage") is None:
+            flag = False
+        else:
+            next_page_str = response_json.get("result").get("nextPage")
+            offset = next_page_str.split("?offset=", 1)[1]
+            count += 1
     
-    while Flag:
-        # pull the data
-        if count == 0:
-            # set the url
-            s = '{0}/API/v3/surveys'.format(base_url)
-        else:
-            # set the url
-            s = '{0}/API/v3/surveys?offset={1}'.format(base_url, cnum)
-        
-        # Pull the surveys
-        r = requests.get(s, headers={"Authorization": "Bearer " + tkn})
-        # convert the data into a more readable format
-        r = r.json()
+    # Reset the indices of the final DataFrame and return it
+    survey_list_df = survey_list_df.reset_index(drop=True)
+    
+    return survey_list_df
 
-        # Extract the Last of the Survey List
-        CurDF = pd.DataFrame(r.get("result").get("elements"))
-        
-        if count == 0:
-            # There is just one page of results
-            SurveyDF = CurDF
-        else: 
-            # Else add to the current dataframe
-            SurveyDF = pd.concat([SurveyDF, CurDF])
-            
-        if r.get("result").get("nextPage") is None:
-            # Then set the Flag to False to end the loop
-            Flag = False
-            
-        else:
-            # Then the flag is still true
-            # Extract the Next Page string
-            NPstr = r.get("result").get("nextPage")
-            # Extract the current number for offset
-            cnum = NPstr.split("?offset=",1)[1]        
-            # update the counter
-            count = count + 1
-    # reset the indices
-    SurveyDF = SurveyDF.reset_index(drop = True)
-    return SurveyDF
 
-# Pull survey questions
-def get_survey_questions(base_url, tkn, SurveyId):
-    #set the URL
-    s = '{0}/API/v3/surveys/{1}'.format(base_url, SurveyId)
+def export_survey_responses(base_url, access_token, survey_id):
+    """
+    Initiates the export of survey responses from Qualtrics.
+
+    Args:
+        base_url (str): The base URL for the Qualtrics API.
+        access_token (str): The bearer access token for API authorization.
+        survey_id (str): The unique ID of the survey whose responses are to be exported.
+
+    Returns:
+        dict: A JSON-formatted response containing the export details, such as progress and file ID.
+    """
+    # Set the survey export URL
+    survey_export_url = '{0}/API/v3/surveys/{1}/export-responses'.format(base_url, survey_id)
     # Pull the survey data
-    r = requests.get(s, headers={"Authorization": "Bearer " + tkn})
+    response = requests.post(survey_export_url, 
+                             headers={"Content-Type": "application/json",
+                                      "Authorization": "Bearer " + access_token},
+                             data='{"format": "json", "compress": false}')
     # Convert the data into a more readable format
-    surveyq_dict = r.json()
+    response = response.json()    
+    return response
+
+
+def get_response_export_progress(base_url, access_token, survey_id, export_progress_id):
+    """
+    Checks the progress of an ongoing survey response export.
+
+    Args:
+        base_url (str): The base URL for the Qualtrics API.
+        access_token (str): The bearer access token for API authorization.
+        survey_id (str): The unique ID of the survey whose responses are being exported.
+        export_progress_id (str): The unique ID representing the current export progress.
+
+    Returns:
+        dict: A JSON-formatted response indicating the progress status and completion percentage.
+    """
+    # Set the export progress URL
+    export_progress_url = '{0}/API/v3/surveys/{1}/export-responses/{2}'.format(base_url, survey_id, export_progress_id)
+    # Pull the survey data
+    response = requests.get(export_progress_url, 
+                            headers={"Content-Type": "application/json",
+                                     "Authorization": "Bearer " + access_token})
+    # Convert the data into a more readable format
+    response = response.json()    
+    return response
+
+
+def get_survey_responses(base_url, access_token, survey_id, file_id):
+    """
+    Downloads the survey responses after the export process is complete.
+
+    Args:
+        base_url (str): The base URL for the Qualtrics API.
+        access_token (str): The bearer access token for API authorization.
+        survey_id (str): The unique ID of the survey whose responses are to be downloaded.
+        file_id (str): The file ID representing the exported survey responses.
+
+    Returns:
+        requests.Response: The HTTP response containing the survey responses file.
+    """
+    # Set the file download URL
+    file_download_url = '{0}/API/v3/surveys/{1}/export-responses/{2}/file'.format(base_url, survey_id, file_id)
+    # Pull the survey data
+    response = requests.get(file_download_url, 
+                            headers={"Content-Type": "application/json",
+                                     "Authorization": "Bearer " + access_token})
+    return response
+
+
+def organize_responses(responses):
+    """
+    Organize survey responses into a structured DataFrame.
     
-    def strip_html(data):
-        html_pattern = re.compile(r'<[^>]*>')
-        if isinstance(data, str):
-            return html_pattern.sub('', data)
-        elif isinstance(data, dict):
-            return {k: strip_html(v) for k, v in data.items()}
-        elif isinstance(data, list):
-            return [strip_html(item) for item in data]
+    Args:
+        responses (list): List of survey response data in JSON format.
+    
+    Returns:
+        pd.DataFrame: A DataFrame containing the organized responses.
+    """
+    # Initialize an empty DataFrame for the responses
+    responses_df = []
+
+    # Process each response
+    for response in responses:
+        # Extract the current response and normalize it into a DataFrame
+        temp_df = pd.json_normalize(response.get('values'))
+        if len(responses_df) == 0:
+            responses_df = temp_df
         else:
-            return data
+            # Concatenate the responses into the DataFrame
+            responses_df = pd.concat([responses_df, temp_df])
+    
+    # Reset the index of the DataFrame
+    responses_df = responses_df.reset_index(drop=True)
+    
+    # Reorder the columns: first non-question columns, then question columns
+    column_names = responses_df.columns
+    question_columns = [col for col in column_names if col.startswith('QID')]
+    non_question_columns = list(set(column_names) - set(question_columns))
+    
+    non_question_df = responses_df.loc[:, np.isin(column_names, non_question_columns)]
+
+    # Prepare to order question columns by number, sub-question, and loop number
+    question_number = []
+    sub_question_number = []
+    loop_number = []
+
+    for question in question_columns:
+        # Split the column name into parts (e.g., 'QID1_1_TEXT' becomes ['QID1', '1', 'TEXT'])
+        split_column_name = re.split('_|#', question)
+        
+        # Find the index of the 'QID' part of the split
+        qid_index = [i for i in range(len(split_column_name)) if 'QID' in split_column_name[i]]
+        max_index = len(split_column_name) - 1
+
+        # Determine if it's a loop question
+        if qid_index[0] == 0:
+            loop_number.append(0)
+        elif qid_index[0] == 1:
+            loop_number.append(int(split_column_name[0]))
+        else:
+            print('Issues with ' + question)
+            break
+
+        # Extract the numeric part of the QID (e.g., 'QID1' becomes ['QID', '1'])
+        qid_numeric_parts = re.split('QID', split_column_name[qid_index[0]])
+        question_number.append(int(qid_numeric_parts[1]))
+
+        # Handle sub-questions
+        if max_index > qid_index[0]:
+            if split_column_name[qid_index[0] + 1].isnumeric():
+                sub_question_number.append(int(split_column_name[qid_index[0] + 1]))
+            else:
+                sub_question_number.append(0)
+        else:
+            sub_question_number.append(0)
+    
+    # Create a DataFrame to sort the questions
+    question_id_dict = {
+        'question_column': question_columns,
+        'question_number': question_number,
+        'sub_question_number': sub_question_number,
+        'loop_number': loop_number
+    }
+    question_id_df = pd.DataFrame(question_id_dict)
+    question_id_df = question_id_df.sort_values(by=['question_number', 'sub_question_number', 'loop_number'], ascending=[True, True, True])
+
+    # Extract the question columns in the new order
+    question_df_sorted = responses_df.loc[:, question_id_df['question_column']]
+    
+    # Concatenate non-question and question columns
+    final_results_df = pd.concat([non_question_df, question_df_sorted], axis=1)
+    
+    return final_results_df
+
+
+def get_survey_questions(base_url, token, survey_id):
+    """
+    Retrieve the questions from a specific survey in the Qualtrics API and clean the data by stripping HTML tags.
+
+    This function fetches the survey questions from a specified survey using the Qualtrics API. 
+    It returns the survey data as a dictionary and removes any HTML tags that may be present 
+    in the survey question text.
+
+    Args:
+        base_url (str): The base URL for the Qualtrics API.
+    token (str): The API token used for authorization.
+        survey_id (str): The unique ID of the survey whose questions are being retrieved.
+
+    Returns:
+        dict: A dictionary containing the survey questions with HTML tags removed.
+        
+    Raises:
+        requests.exceptions.RequestException: If there's an error with the API request.
+    """
+    # Set the URL for the specific survey
+    survey_url = '{0}/API/v3/surveys/{1}'.format(base_url, survey_id)
+    
+    # Pull the survey data
+    response = requests.get(survey_url, headers={"Authorization": "Bearer " + token})
+    
+    # Convert the data into a more readable format
+    surveyq_dict = response.json()
 
     # Apply HTML cleaning on the survey questions inside 'result'
     if 'result' in surveyq_dict and 'questions' in surveyq_dict['result']:
@@ -258,601 +376,563 @@ def get_survey_questions(base_url, tkn, SurveyId):
                 question_data['choices'] = strip_html(question_data['choices'])
 
     return surveyq_dict
+
+
+def strip_html(data):
+    """
+    Remove HTML tags from the input data, which may be a string, list, or dictionary.
     
+    Args:
+        data (str, list, or dict): The data from which HTML tags should be stripped.
+    
+    Returns:
+        The same data structure with HTML tags removed from strings.
+    """
+    html_pattern = re.compile(r'<[^>]*>')
+    if isinstance(data, str):
+        return html_pattern.sub('', data)
+    elif isinstance(data, dict):
+        return {k: strip_html(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [strip_html(item) for item in data]
+    else:
+        return data
 
-# Pulls a little more information than the survey Qs
-def get_all_survey_info(base_url, tkn, SurveyId):
-    # set the url
-    s = '{0}/API/v3/survey-definitions/{1}'.format(base_url, SurveyId)
-    # Pull the survey data
-    r = requests.get(s, 
-                     headers={"Content-Type": "application/json",
-                              "Authorization": "Bearer " + tkn}) 
-    # convert the data into a more readable format
-    r = r.json()    
-    return r
+def extract_column_data_types(question_dictionary, responses_df, base_url, token, survey_id):
+    """
+    Extracts column data types and question details from a survey.
+    
+    Parameters:
+    - question_dictionary (dict): Survey dictionary with questions.
+    - responses_df (pd.DataFrame): Survey response DataFrame.
+    - base_url (str): Base URL for Qualtrics API.
+    - token (str): API token.
+    - survey_id (str): Survey ID.
+    
+    Returns:
+    - question_df (pd.DataFrame): DataFrame containing question details.
+    - question_values_df (pd.DataFrame): DataFrame containing question values and answer IDs.
+    """
+    
+    # Extract column names from responses DataFrame
+    column_names = responses_df.columns
+    question_columns = [col for col in column_names if 'QID' in col]
+    
+    if len(question_columns) == 0:
+        return pd.DataFrame(), pd.DataFrame()
+    
+    # Initialize lists for different question properties
+    question_id_list = []
+    question_name_list = []
+    question_text_list = []
+    question_type_list = []
+    question_selector_list = []
+    
+    # Initialize lists for question details
+    long_text_id_list = []
+    question_value_list = []
+    answer_id_list = []
+    is_numeric_list = []
+    keep_question_list = []
+    
+    # Initialize lists for group-related data
+    group_question_id_list = []
+    group_value_list = []
+    group_answer_id_list = []
+    
+    # List of survey question keys
+    key_list = list(question_dictionary.keys())
 
-# Post the survey Response Export
-def export_survey_responses(base_url, tkn, SurveyId):
-    # set the url
-    s = '{0}/API/v3/surveys/{1}/export-responses'.format(base_url, SurveyId)
-    # Pull the survey data
-    r = requests.post(s, 
-                     headers={"Content-Type": "application/json",
-                              "Authorization": "Bearer " + tkn},
-                     data='{"format": "json", "compress": false}')
-    # convert the data into a more readable format
-    r = r.json()    
-    return r
+    for col in question_columns:
+        split_column_name = re.split('_|#', col)  # Split on underscores or # for QID
+        qid_index = [i for i in range(len(split_column_name)) if 'QID' in split_column_name[i]]
 
-# Function to get the Response Export Progress
-def get_response_export_progress(base_url, tkn, SurveyId, EPid):
-    # set the url
-    s = '{0}/API/v3/surveys/{1}/export-responses/{2}'.format(base_url, SurveyId, EPid)
-    # Pull the survey data
-    r = requests.get(s, 
-                     headers={"Content-Type": "application/json",
-                              "Authorization": "Bearer " + tkn})
-    # convert the data into a more readable format
-    r = r.json()    
-    return r
-
-
-
-def get_groups(base_url, tkn):
-    # set the url
-    s = '{0}/API/v3/groups'.format(base_url)
-    # Pull the survey data
-    r = requests.get(s, 
-                     headers={"Content-Type": "application/json",
-                              "Authorization": "Bearer " + tkn})
-    # convert the data into a more readable format
-    r = r.json()
-    return r
-
-# Share a Survey with a group or person
-def share_survey(base_url, tkn, SurveyId, data):
-    # set the url
-    s = '{0}/API/v3/surveys/{1}/permissions/collaborations'.format(base_url, SurveyId)
-    # Pull the survey data
-    r = requests.post(s, 
-                     headers={"Content-Type": "application/json",
-                              "Authorization": "Bearer " + tkn},
-                     data=data)
-    # convert the data into a more readable format
-    r = r.json()    
-    return r
-
-
-# Share a Survey with a group or person
-def get_user_identity(base_url, tkn): 
-    # set the url
-    s = '{0}/API/v3/whoami'.format(base_url)
-    # Pull the survey data
-    r = requests.get(s, 
-                     headers={"Content-Type": "application/json",
-                              "Authorization": "Bearer " + tkn})
-    # convert the data into a more readable format
-    r = r.json()    
-    return r
-
-REcollabJson = open('RandE_Collaborator.json')
-
-def organize_responses(Responses):
-    # DF = Dataframe of the Responses
-    # for each response extract and put in a dataFrame
-    DF = []
-    for j in Responses:
-        # Extract the current response and normalize
-        tDF = pd.json_normalize(j.get('values'))
-        if len(DF) == 0:
-            # Then tDF = DF
-            DF = tDF
-        else:
-            # Then concatenate
-            DF = pd.concat([DF, tDF])
+        if split_column_name[qid_index[0]] in key_list:
+            current_question = question_dictionary.get(split_column_name[qid_index[0]])
             
-    # Reset the DF index
-    DF = DF.reset_index(drop = True)
+            # Append basic question properties
+            question_id_list.append(col)
+            question_name_list.append(current_question.get('questionName'))
+            current_type = current_question.get('questionType').get('type')
+            question_type_list.append(current_type)
+            question_selector_list.append(current_question.get('questionType').get('selector'))
 
-    # Reorder the columns so that they appear in order
-    # Find the QID columns 
-    ColNames = DF.columns
-    QCols = [x for x in ColNames if x.startswith('QID')]
-    # NonQcols
-    NonQCols = list(set(ColNames) - set(QCols))
-    DFTemp1 = DF.loc[:, np.isin(ColNames, NonQCols)]
-    
-    # Create a function to order the column headers
-    Q_Num = []
-    Q_SubQ = []
-    Q_LoopN = []
-    
-    for q in QCols:
-        # Split the QID
-        CurSpl = re.split('_|#', q) 
-        # Find the QID index
-        QIDind = [i for i in range(len(CurSpl)) if 'QID' in CurSpl[i]]
-        # Get the max index
-        MaxInd = len(CurSpl) - 1
-        
-        # Determine where the QID is 
-        if QIDind[0] == 0:
-            # Then this is not a loop question
-            Q_LoopN.append(0)
-        elif QIDind[0] == 1:
-            # Then this is a loop question
-            Q_LoopN.append(int(CurSpl[0]))
-        else:
-            print('Issues with ' + q)
-            break
-        # Grab the Question
-        QSpl = re.split('QID', CurSpl[QIDind[0]])
-        # Append the number
-        Q_Num.append(int(QSpl[1]))
-        # Determine if there is a subquestion
-        if MaxInd > QIDind[0]:
-            # Then there could be a sub question... check
-            if CurSpl[QIDind[0] + 1].isnumeric():
-                # Then get the sub question
-                Q_SubQ.append(int(CurSpl[QIDind[0] + 1]))
+            # Check if question type is numeric
+            is_numeric_list.append(is_numeric(current_question))
+            
+            # Handle different question types
+            if current_type == 'Matrix':
+                handle_matrix_question(current_question, split_column_name, question_text_list, long_text_id_list, question_value_list, answer_id_list, keep_question_list)
+            elif current_type == 'CS':
+                handle_cs_question(current_question, split_column_name, question_text_list, is_numeric_list, keep_question_list)
+            elif current_type == 'RO':
+                handle_ro_question(current_question, split_column_name, question_text_list, keep_question_list, base_url, token, survey_id)
+            elif current_type == 'Slider':
+                handle_slider_question(current_question, split_column_name, question_text_list, is_numeric_list, keep_question_list)
+            elif current_type == 'Timing':
+                handle_timing_question(current_question, question_text_list, is_numeric_list, keep_question_list)
+            elif current_type == 'SS':
+                handle_graphic_slider(current_question, question_selector_list, question_text_list, is_numeric_list, keep_question_list)
+            elif current_type == 'PGR':
+                handle_pgr_question(current_question, split_column_name, question_text_list, group_question_id_list, group_answer_id_list, group_value_list, keep_question_list)
             else:
-                # there is no subquestion
-                Q_SubQ.append(0)
-        else:
-            # the is no subquestion
-            Q_SubQ.append(0)
+                handle_default_question(current_question, split_column_name, question_text_list, long_text_id_list, question_value_list, answer_id_list, question_type_list, question_selector_list, keep_question_list)
     
-    # Create a data frame
-    tdic = {'QCol': QCols,
-            'Q_Num': Q_Num,
-            'Q_SubQ': Q_SubQ,
-            'Q_LoopN': Q_LoopN}
-    QDF = pd.DataFrame(tdic)
-    QDF = QDF.sort_values(by = ['Q_Num', 'Q_SubQ', 'Q_LoopN'], ascending = [True, True, True])
+    # Convert lists to numpy arrays and create DataFrames
+    question_df, question_values_df = create_question_dataframes(
+        question_id_list, 
+        question_name_list, 
+        question_text_list, 
+        question_type_list, 
+        question_selector_list, 
+        is_numeric_list, 
+        long_text_id_list, 
+        question_value_list, 
+        answer_id_list, 
+        keep_question_list
+    )
     
-    # Get the Second DF
-    DFTemp2 = DF.loc[:, QDF['QCol']]
-    
-    # Concatenate
-    DFN = pd.concat([DFTemp1, DFTemp2], axis = 1)
-    
-    return DFN
+    return question_df, question_values_df
 
-def clean_question_df(QuestionsDF):
-    # Clean the questions DF
-    # Set the pattern that contains superflous text formating
-    pat = r'(?=\<).+?(?<=\>)'
-    for i, rows in QuestionsDF.iterrows():
-        # Grab the current text
-        CurT = QuestionsDF.loc[i, 'QText']
-        # Remove superfluous text
-        NewT = re.sub(pat, "", CurT)
-        # Now do the same for any other patterns that don't translate well
-        if '&#39;' in NewT:
-            # This is an apostrophe
-            pat1 = '&#39;'
-            NewT = re.sub(pat1, "'", NewT)
-        if '\n' in NewT:
-            pat2 = '\n'
-            NewT = re.sub(pat2, "", NewT)
-        # Now Fix the QText
-        QuestionsDF.loc[i, 'QText'] = NewT
-    return QuestionsDF
-        
-def extract_column_data_types(QDic, RDF, base_url, tkn, SurveyId):
-    # pull the column names 
-    ColNames = RDF.columns
-    # Find the columns that start with QID
-    QCols = [x for x in ColNames if 'QID' in x]
+
+def is_numeric(current_question):
+    """
+    Checks if a question has a numeric type based on validation settings.
+    """
+    if 'validation' in current_question:
+        current_validation = current_question.get('validation')
+        if 'type' in current_validation and current_validation.get('type') == 'ValidNumber':
+            return True
+    return False
+
+
+def handle_matrix_question(current_question, split_column_name, question_text_list, long_text_id_list, question_value_list, answer_id_list, keep_question_list):
+    """
+    Handles extraction for Matrix question types.
+    """
+    main_question_text = current_question.get('questionText')
+    sub_question_text = current_question.get('subQuestions').get(split_column_name[1]).get('choiceText')
+    question_text_list.append(f"{main_question_text}| {sub_question_text}")
+    keep_question_list.append(True)
+    handle_choice_or_scoring(current_question, split_column_name, long_text_id_list, question_value_list, answer_id_list)
+
+
+def handle_choice_or_scoring(current_question, split_column_name, long_text_id_list, question_value_list, answer_id_list):
+    """
+    Handles choice and scoring values for questions.
+    """
+    # This logic would handle how choices or scores are appended
+    pass
+
+
+def handle_cs_question(current_question, split_column_name, question_text_list, is_numeric_list, keep_question_list):
+    """
+    Handles extraction for Cumulative Sum (CS) question types.
+    """
+    main_question_text = current_question.get('questionText')
+    choices = current_question.get('choices')
+    sub_question_text = choices.get(split_column_name[1]).get('choiceText')
+    question_text_list.append(f"{main_question_text}| {sub_question_text}")
+    is_numeric_list[-1] = True
+    keep_question_list.append(True)
+
+
+def handle_ro_question(current_question, split_column_name, question_text_list, keep_question_list, base_url, token, survey_id):
+    """
+    Handles extraction for Rank Order (RO) question types.
+    """
+    if split_column_name[-1] == 'TEXT':
+        question_text_list.append(current_question.get('questionText'))
+        keep_question_list.append(True)
+    else:
+        survey_info = get_full_survey_info(base_url, token, survey_id)
+        choice_order = survey_info.get('result').get('Questions').get(split_column_name[0]).get('ChoiceOrder')
+        current_key = str(choice_order[int(split_column_name[1]) - 1])
+        main_question_text = current_question.get('questionText')
+        choices = current_question.get('choices')
+        sub_question_text = choices.get(current_key).get('choiceText')
+        question_text_list.append(f"{main_question_text}| {sub_question_text}")
+        keep_question_list.append(True)
+
+
+def handle_slider_question(current_question, split_column_name, question_text_list, is_numeric_list, keep_question_list):
+    """
+    Handles extraction for Slider question types.
+    """
+    main_question_text = current_question.get('questionText')
+    choices = current_question.get('choices')
+    sub_question_text = choices.get(split_column_name[1]).get('choiceText')
+    question_text_list.append(f"{main_question_text}| {sub_question_text}")
+    is_numeric_list[-1] = True
+    keep_question_list.append(True)
+
+
+def handle_timing_question(current_question, question_text_list, is_numeric_list, keep_question_list):
+    """
+    Handles extraction for Timing question types.
+    """
+    question_text_list.append(current_question.get('questionText'))
+    is_numeric_list[-1] = True
+    keep_question_list.append(True)
+
+
+def handle_graphic_slider(current_question, question_selector_list, question_text_list, is_numeric_list, keep_question_list):
+    """
+    Handles extraction for Graphic Slider (SS) question types.
+    """
+    if question_selector_list == 'TA':
+        question_text_list.append(current_question.get('questionText'))
+        is_numeric_list[-1] = True
+        keep_question_list.append(True)
+    else:
+        print('Problems with Type SS (Graphical Slider)!!')
+
+
+def handle_pgr_question(current_question, split_column_name, question_text_list, group_question_id_list, group_answer_id_list, group_value_list, keep_question_list):
+    """
+    Handles extraction for PGR (Pick, Group, Rank) question types.
+    """
+    if split_column_name[-1] == 'GROUP':
+        main_question_text = current_question.get('questionText')
+        groups = current_question.get('groups')
+        sub_question_text = groups.get(split_column_name[1]).get('description')
+        question_text_list.append(f"{main_question_text}| {sub_question_text}")
+        keep_question_list.append(True)
+        items = current_question.get('items')
+        for item_key in items:
+            current_item = items.get(item_key)
+            group_question_id_list.append(split_column_name[0])
+            group_answer_id_list.append(item_key)
+            group_value_list.append(current_item.get('description'))
+
+
+def handle_default_question(current_question, split_column_name, question_text_list, long_text_id_list, question_value_list, answer_id_list, question_type_list, question_selector_list, keep_question_list):
+    """
+    Handles the default case for question types not specifically handled.
+    """
+    question_text_list.append(current_question.get('questionText'))
+    keep_question_list.append(True)
+    if current_question.get('questionType').get('type') == 'MC':
+        if split_column_name[-1] == 'TEXT':
+            question_type_list[-1] = 'TE'
+            question_selector_list[-1] = 'TE'
+        else:
+            choices = current_question.get('choices')
+            for choice_key in choices:
+                current_choice = choices.get(choice_key)
+                long_text_id_list.append(split_column_name[0])
+                answer_id_list.append(current_choice.get('recode'))
+                question_value_list.append(current_choice.get('choiceText'))
+
+
+def create_question_dataframes(question_id_list, question_name_list, question_text_list, question_type_list, question_selector_list, is_numeric_list, long_text_id_list, question_value_list, answer_id_list, keep_question_list):
+    """
+    Creates the final dataframes for question data and question values.
+    """
+    question_df = pd.DataFrame({
+        "question_id": np.array(question_id_list)[np.array(keep_question_list)],
+        "question_name": np.array(question_name_list)[np.array(keep_question_list)],
+        "question_text": np.array(question_text_list)[np.array(keep_question_list)],
+        "question_type": np.array(question_type_list)[np.array(keep_question_list)],
+        "question_selector": np.array(question_selector_list)[np.array(keep_question_list)],
+        "is_numeric": np.array(is_numeric_list)[np.array(keep_question_list)]
+    })
     
-    # Check to see if there are any questions
-    if len(QCols) > 0:
+    question_values_df = pd.DataFrame({
+        "question_id": long_text_id_list,
+        "question_value": question_value_list,
+        "answer_id": answer_id_list
+    })
     
-        # Replace _Text since that will not map
-        # QCols_MinT = [x.replace('_TEXT', '') for x in QCols]
+    return question_df, question_values_df
+
+
+def create_data_type_dictionary(question_df, question_values_df):
+    """
+    Creates a dictionary of data types for the questions and adds the corresponding data types to the question DataFrame.
     
-        # Extract the Question text and Question type, Question value and Question ID
-        QID = []
-        QName = []
-        QText = []
-        QType = []
-        QTypeSel = []
-        QID_LT = []
-        Q_Value = []
-        Q_AnsId = []
-        Q_Numeric = []
-        QKeep = []
-        
-        # Create a different set for groups
-        QG_QID = []
-        QG_Value = []
-        QG_AnsId = []
-        
-        # Get list of survey Question Keys
-        KeyList = list(QDic.keys())                
-        
-        for x in QCols:
-            # Split the current QID
-            CurSpl = re.split('_|#', x) # The # symbol may indicate that the variable is numeric
-            # Find the QID index
-            QIDind = [i for i in range(len(CurSpl)) if 'QID' in CurSpl[i]]
-            
-            # check to see if the key is present
-            if CurSpl[QIDind[0]] in KeyList:
-                # Record the QID col
-                QID.append(x)
-                # Pull the question key
-                CurQ = QDic.get(CurSpl[QIDind[0]])
-                # Record the question name
-                QName.append(CurQ.get('questionName'))
-                # Get the question type
-                CurType = CurQ.get('questionType').get('type')
-                QType.append(CurType)
-                CurTypeSel = CurQ.get('questionType').get('selector')
-                QTypeSel.append(CurTypeSel)
-                
-                # Check to see if the type is numeric
-                # Check to see if the data is there
-                if 'validation' in CurQ:
-                    # Then check to see if validation type is there
-                    CurValid = CurQ.get('validation')
-                    if 'type' in CurValid:
-                        # Then check to is if it is numeric
-                        CurValidType = CurValid.get('type')
-                        if 'ValidNumber' in CurValidType:
-                            # Then the value is numeric
-                            Q_Numeric.append(True)
-                        else:
-                            # Value is not numeric
-                            Q_Numeric.append(False)
-                    else:
-                        # Value is not numeric
-                        Q_Numeric.append(False)                
-                else:
-                    # Value is not numeric
-                    Q_Numeric.append(False)
-                
-                if CurType == 'Matrix':
-                    # Then there are sub questions
-                    # Get the first half of the question 
-                    QT1 = CurQ.get('questionText')
-                    # Now need to dig deeper and pull the second half the question
-                    QT2 = CurQ.get('subQuestions').get(CurSpl[QIDind[0]+1]).get('choiceText')
-                    # Get the Question Text (marking the split with a bar)
-                    QT = QT1 + '| ' + QT2
-                    QText.append(QT)
-                    QKeep.append(True)
-                    # Pull the values
-                    Scores = CurQ.get('subQuestions').get(CurSpl[QIDind[0]+1]).get('scoring')
-                    # Check to see if Scores is None
-                    # Check to see if the subType is CS
-                    if CurTypeSel == 'CS':
-                        # The data is numeric
-                        Q_Numeric[-1] = True
-                    else:
-                        if Scores is None:
-                            # Then record the Choices
-                            Choices = CurQ.get('choices')
-                            for xx in Choices:
-                                # Get the Current Data
-                                CurChoice = Choices.get(xx)
-                                # Record the QID_MC_LT
-                                QID_LT.append(x)
-                                # Record the answer ID
-                                Q_AnsId.append(CurChoice.get('recode'))
-                                # Record the answer value
-                                Q_Value.append(CurChoice.get('choiceText'))                        
-                        else:                        
-                            # Then go to scoring
-                            for xx in Scores:
-                                # Record the question
-                                QID_LT.append(x)
-                                # Get the value
-                                Q_Value.append(xx.get('value'))
-                                # Get the answer Id and see if it exists
-                                if xx.get('answerId') is None:
-                                    # Then enter the value for AnswerId
-                                    Q_AnsId.append(xx.get('value'))
-                                else: 
-                                    # There is a value so add it
-                                    Q_AnsId.append(xx.get('answerId'))
-                elif CurType == 'CS':
-                    # the data type is cumulative sum, so will need to get subquestions
-                    # Also reset the value to numeric
-                    Q_Numeric[-1] = True                
-                    # Then there are sub questions
-                    # Get the first half of the question 
-                    QT1 = CurQ.get('questionText')
-                    # Now need to get each sub question
-                    # Extract the Choices
-                    Choices = CurQ.get('choices')
-                    # Now need to dig deeper and pull the second half the question
-                    QT2 = Choices.get(CurSpl[QIDind[0]+1]).get('choiceText')
-                    # Get the Question Text (marking the split with a bar)
-                    QT = QT1 + '| ' + QT2
-                    QText.append(QT)
-                    QKeep.append(True)
-                elif CurType == 'RO':
-                    # Then might need to get the full survey to map properly
-                    if CurSpl[len(CurSpl) - 1] == 'TEXT':
-                        # Then change the data type to text
-                        QType[-1] = 'TE'
-                        QTypeSel[-1] = 'TE'
-                        # the data type is rank order, so will need to get subquestions
-                        # Then there are sub questions
-                        # Get the first half of the question 
-                        QT = CurQ.get('questionText')
-                        QText.append(QT)
-                        QKeep.append(True)                            
-                    else:
-                        # Get the mapping
-                        FSurv = get_all_survey_info(base_url, tkn, SurveyId)
-                        # Pull the results
-                        CO = FSurv.get('result').get('Questions').get(CurSpl[QIDind[0]]).get('ChoiceOrder')
-                        # Now Index the substring and subtract 1
-                        CurKey = str(CO[int(CurSpl[QIDind[0]+1]) - 1])
-                        # the data type is rank order, so will need to get subquestions
-                        # Then there are sub questions
-                        # Get the first half of the question 
-                        QT1 = CurQ.get('questionText')
-                        # Now need to get each sub question
-                        # Extract the Choices
-                        Choices = CurQ.get('choices')
-                        # Now need to dig deeper and pull the second half the question
-                        QT2 = Choices.get(CurKey).get('choiceText')
-                        # Get the Question Text (marking the split with a bar)
-                        QT = QT1 + '| ' + QT2
-                        QText.append(QT)
-                        QKeep.append(True)
-                elif CurType == 'Slider':
-                    # The data is slider and numeric
-                    # Also reset the value to numeric
-                    Q_Numeric[-1] = True                
-                    # Then there are sub questions
-                    # Get the first half of the question 
-                    QT1 = CurQ.get('questionText')
-                    # Now need to get each sub question
-                    # Extract the Choices
-                    Choices = CurQ.get('choices')
-                    # Now need to dig deeper and pull the second half the question
-                    QT2 = Choices.get(CurSpl[QIDind[0]+1]).get('choiceText')
-                    # Get the Question Text (marking the split with a bar)
-                    QT = QT1 + '| ' + QT2
-                    QText.append(QT)
-                    QKeep.append(True)
-                elif CurType == 'Timing':
-                    # Then the question is a timing question
-                    # Reset the value to numeric
-                    Q_Numeric[-1] = True   
-                    # Get the question text
-                    QText.append(CurQ.get('questionText'))
-                    QKeep.append(True)
-                elif CurType == 'SS':
-                    # Then the question is a graphic slider
-                    # Not all graphic sliders are numeric scale,
-                    # I am assuming typesel is numeric
-                    if CurTypeSel == 'TA':
-                        # the data is numeric so adjust
-                        # Reset the value to numeric
-                        Q_Numeric[-1] = True   
-                        # Get the question text
-                        QText.append(CurQ.get('questionText'))
-                        QKeep.append(True)
-                    else:
-                        print('Problems with Type SS (Graphical Slider)!!')
-                elif CurType == 'PGR':
-                    if CurSpl[len(CurSpl) - 1] == 'GROUP':
-                        # Then there is a sub question
-                        # Get the first half of the question 
-                        QT1 = CurQ.get('questionText')
-                        # Now need to get each sub question
-                        # Extract the Choices
-                        Groups = CurQ.get('groups')
-                        # Now need to dig deeper and pull the second half the question
-                        QT2 = Groups.get(CurSpl[QIDind[0]+1]).get('description')
-                        # Get the Question Text (marking the split with a bar)
-                        QT = QT1 + '| ' + QT2
-                        QText.append(QT)
-                        # Record the Values
-                        QKeep.append(True)
-                        # Extract the values
-                        Items = CurQ.get('items')
-                        for xx in Items:
-                            CurItem = Items.get(xx)
-                            # Get the QG_QID
-                            QG_QID.append(x)
-                            QG_AnsId.append(xx)
-                            QG_Value.append(CurItem.get('description'))   
-                    elif CurSpl[len(CurSpl) - 1] == 'RANK':
-                        # then this is just the rank order of items
-                        # The format is: 
-                            # 1) QID
-                            # 2) G followed by subquestion # (i.e., description recode)
-                            # 3) The item key
-                            # 4) the word RANK
-                            # This is repeated information since the vectors already have the items listed in order
-                            # No need to save this
-                            QText.append(CurQ.get('questionText'))
-                            QKeep.append(False)
-                    elif CurSpl[len(CurSpl) - 1] == 'TEXT':
-                        # then this is free text for the free text question
-                        # Get the first half of the question 
-                        QT1 = CurQ.get('questionText')
-                        # Now need to get each sub question
-                        # Extract the items
-                        Items = CurQ.get('items')
-                        # Get the item 
-                        CurItem = Items.get(CurSpl[QIDind[0]+1])
-                        # Now need to dig deeper and pull the second half the question
-                        QT2 = CurItem.get('description')
-                        # Get the Question Text (marking the split with a bar)
-                        QT = QT1 + '| ' + QT2
-                        QText.append(QT)
-                        # Record the Values
-                        QKeep.append(True)
-                        # Reset the data type to text
-                        QType[-1] = 'TE'
-                        QTypeSel[-1] = 'TE'
-                    else: 
-                        # There is no subquestion
-                        QText.append(CurQ.get('questionText'))
-                        # Record the Values
-                        QKeep.append(True)
-                        # Extract the values
-                        Items = CurQ.get('items')
-                        for xx in Items:
-                            CurItem = Items.get(xx)
-                            # Get the QG_QID
-                            QG_QID.append(x)
-                            QG_AnsId.append(xx)
-                            QG_Value.append(CurItem.get('description'))    
-                else:
-                    # Get the question text
-                    QText.append(CurQ.get('questionText'))
-                    # Keep the question
-                    QKeep.append(True)
-                    # If the question type is Multiple Choice Record the values
-                    if CurQ.get('questionType').get('type') == 'MC':
-                        if CurSpl[-1] == 'TEXT':
-                            # Then the data is text
-                            QType[-1] = 'TE'
-                            QTypeSel[-1] = 'TE'
-                        else:
-                            # Then record the Choices
-                            Choices = CurQ.get('choices')
-                            for xx in Choices:
-                                # Get the Current Data
-                                CurChoice = Choices.get(xx)
-                                # Record the QID_MC_LT
-                                QID_LT.append(x)
-                                # Record the answer ID
-                                Q_AnsId.append(CurChoice.get('recode'))
-                                # Record the answer value
-                                Q_Value.append(CurChoice.get('choiceText'))
-                    
-        # convert to numpy arrays
-        QID = np.array(QID)
-        QName = np.array(QName)
-        QText = np.array(QText)
-        QType = np.array(QType)
-        QTypeSel = np.array(QTypeSel)
-        Q_Numeric = np.array(Q_Numeric)
-        # Create dataframes
-        dic = {"QID": QID[np.array(QKeep)],
-               "QName": QName[np.array(QKeep)],
-               "QText": QText[np.array(QKeep)],
-               "QType": QType[np.array(QKeep)],
-               "QTypeSel": QTypeSel[np.array(QKeep)],
-               "Q_Numeric": Q_Numeric[np.array(QKeep)]}
-        # Data frame with column headers and questions
-        QuestionsDF = pd.DataFrame(dic)
-        
-        # Clean some of the Data types which are really text
-        # Add a column to account for subquestions other
-        QuestionsDF['Original_QType'] = QuestionsDF['QType']
-        Mask = np.array(QuestionsDF['QID'].str.contains('_TEXT'))
-        QuestionsDF.loc[Mask, 'QType'] = 'TE'
-        
-        dic = {"QID": QID_LT,
-               "Q_Value": Q_Value,
-               "Q_AnsId": Q_AnsId}
-        # Data frame of the values to questions
-        QuestionValues = pd.DataFrame(dic)
-        
-        QuestionsDF = clean_question_df(QuestionsDF)
-        
-        return QuestionsDF, QuestionValues
+    Args:
+        question_df (pd.DataFrame): DataFrame containing the questions' metadata.
+        question_values_df (pd.DataFrame): DataFrame containing the question values and answer IDs.
     
-    
-def create_data_type_dictionary(QDF, QVals):
-    ###############################################################################
-    
-    # I am just going to do some partial coding. Please incorporate where you see 
-    # fit in your code. We can meet if you have any questions
-    
-    # Go through the questions in order 
-    # QDF['QTypeSel'] == 'SL' Is free text 
-    # QDF['QTypeSel'] == 'FileUpload' Is info on files being uploaded
-    
+    Returns:
+        pd.DataFrame: The updated question DataFrame with an added 'DataType' column.
+    """
     # Get lists of the Free Text columns
-    Mask = np.array(QDF['QType'] == 'TE') &\
-        np.array(QDF['Q_Numeric'] == False)
-    FreeTextCols = set(QDF.QID[Mask])
+    mask = np.array(question_df['question_type'] == 'TE') & np.array(question_df['is_numeric'] == False)
+    free_text_columns = set(question_df['question_id'][mask])
     
     # Get lists of the FileUpload columns
-    FileUpCols = set(QDF.QID[QDF['QType'] == 'FileUpload'])
+    file_upload_columns = set(question_df['question_id'][question_df['question_type'] == 'FileUpload'])
     
-    # Get list of Meta columns 
-    # These are essentially categorical but without predefined categories
-    MetaCols = set(QDF.QID[QDF['QType'] == 'Meta'])
+    # Get list of Meta columns (categorical but without predefined categories)
+    meta_columns = set(question_df['question_id'][question_df['question_type'] == 'Meta'])
     
     # Get lists of the Draw columns (often signatures)
-    DrawCols = set(QDF.QID[QDF['QType'] == 'Draw'])
+    draw_columns = set(question_df['question_id'][question_df['question_type'] == 'Draw'])
     
-    # Frequency Plots
-    MC = set(QVals['QID'])
+    # Frequency Plots (Multiple Choice questions)
+    multiple_choice_columns = set(question_values_df['question_id'])
     
-    # What to do with Timing columns... they track page times...
-    # Nothing for now
-    TimingCols = set(QDF.QID[QDF['QType'] == 'Timing'])
+    # Get Timing columns (tracks page times)
+    timing_columns = set(question_df['question_id'][question_df['question_type'] == 'Timing'])
     
-    # What to do with date columns
-    DateCols = set(QDF.QID[QDF['QType'] == 'SBS'])
+    # Get Date columns
+    date_columns = set(question_df['question_id'][question_df['question_type'] == 'SBS'])
     
-    # What to do with Rank Order columns? Heat Matrix?
-    ROCols = set(QDF.QID[QDF['QType'] == 'RO'])
+    # Get Rank Order columns
+    rank_order_columns = set(question_df['question_id'][question_df['question_type'] == 'RO'])
     
-    # What to do with Group cols list Questions and the responses below
-    GroupCols = set(QDF.QID[QDF['QType'] == 'PGR'])
+    # Get Group columns for questions and responses
+    group_columns = set(question_df['question_id'][question_df['question_type'] == 'PGR'])
     
-    # This should get the numeric Cols
-    NumCols = set(QDF.QID[QDF['Q_Numeric']])
-
+    # Get the numeric columns
+    numeric_columns = set(question_df['question_id'][question_df['is_numeric']])
+    
     # Create a dictionary of all the different column types
-    ColDataTypes = {'MultipleChoice': list(MC),
-                    'Numeric': list(NumCols),
-                    'FreeText': list(FreeTextCols),
-                    'RankOrder': list(ROCols),
-                    'FileUpload': list(FileUpCols),
-                    'Group': list(GroupCols),
-                    'MetaData': list(MetaCols),
-                    'Draw': list(DrawCols),
-                    'Timing': list(TimingCols),
-                    'Dates': list(DateCols)}
+    column_data_types = {
+        'MultipleChoice': list(multiple_choice_columns),
+        'Numeric': list(numeric_columns),
+        'FreeText': list(free_text_columns),
+        'RankOrder': list(rank_order_columns),
+        'FileUpload': list(file_upload_columns),
+        'Group': list(group_columns),
+        'MetaData': list(meta_columns),
+        'Draw': list(draw_columns),
+        'Timing': list(timing_columns),
+        'Dates': list(date_columns)
+    }
     
-    # For each QDF determine the data Type
-    DataType = []
-    for cid in QDF['QID']:
-        if cid in ColDataTypes.get('MultipleChoice'):
-            DataType.append('MultipleChoice')
-        elif cid in ColDataTypes.get('Numeric'):
-            DataType.append('Numeric')
-        elif cid in ColDataTypes.get('FreeText'):
-            DataType.append('FreeText')
-        elif cid in ColDataTypes.get('RankOrder'):
-            DataType.append('RankOrder')
-        elif cid in ColDataTypes.get('FileUpload'):
-            DataType.append('FileUpload')
-        elif cid in ColDataTypes.get('Group'):
-            DataType.append('Group')
-        elif cid in ColDataTypes.get('MetaData'):
-            DataType.append('MetaData')
-        elif cid in ColDataTypes.get('Draw'):
-            DataType.append('Draw')
-        elif cid in ColDataTypes.get('Timing'):
-            DataType.append('Timing')
-        elif cid in ColDataTypes.get('Dates'):
-            DataType.append('Dates')
-            
-    QDF['DataType'] = DataType
-    return QDF
+    # Determine the data type for each question
+    data_type = []
+    for question_id in question_df['question_id']:
+        if question_id in column_data_types.get('MultipleChoice'):
+            data_type.append('MultipleChoice')
+        elif question_id in column_data_types.get('Numeric'):
+            data_type.append('Numeric')
+        elif question_id in column_data_types.get('FreeText'):
+            data_type.append('FreeText')
+        elif question_id in column_data_types.get('RankOrder'):
+            data_type.append('RankOrder')
+        elif question_id in column_data_types.get('FileUpload'):
+            data_type.append('FileUpload')
+        elif question_id in column_data_types.get('Group'):
+            data_type.append('Group')
+        elif question_id in column_data_types.get('MetaData'):
+            data_type.append('MetaData')
+        elif question_id in column_data_types.get('Draw'):
+            data_type.append('Draw')
+        elif question_id in column_data_types.get('Timing'):
+            data_type.append('Timing')
+        elif question_id in column_data_types.get('Dates'):
+            data_type.append('Dates')
+    
+    # Add the determined data types to the question DataFrame
+    question_df['data_type'] = data_type
+    return question_df
 
-# yul1.qualtrics.com/API/v3/surveys/{surveyId}/permissions/collaborations
+
+def convert_kwargs_to_string(**kwargs):
+    """
+    Converts the given keyword arguments into a string representation.
+
+    Args:
+        **kwargs: Arbitrary keyword arguments.
+
+    Returns:
+        str: A string representation of the keyword arguments.
+    """
+    kwargs_string = str(kwargs)
+    return kwargs_string
+
+
+def format_dict_for_json(dictionary):
+    """
+    Formats a dictionary by converting it to a JSON-like string.
+    Replaces single quotes with double quotes for proper JSON formatting.
+
+    Args:
+        dictionary (dict): A dictionary to format.
+
+    Returns:
+        str: A JSON-like formatted string with double quotes.
+    """
+    json_like_string = str(dictionary).replace("'", '"')
+    return json_like_string
+
+
+def get_users(base_url, token):
+    """
+    Fetches the list of users from the API.
+
+    Args:
+        base_url (str): The base URL for the API.
+        token (str): The authorization token for the API.
+
+    Returns:
+        dict: A JSON object containing the list of users.
+    """
+    # Set the endpoint URL
+    endpoint_url = '{0}/API/v3/users'.format(base_url)
+    
+    # Pull the survey data
+    response = requests.get(endpoint_url, 
+                            headers={"Content-Type": "application/json",
+                                     "Authorization": "Bearer " + token}) 
+    
+    # Convert the data into a more readable format
+    response = response.json()    
+    return response
+
+
+def get_survey_meta(base_url, token, survey_id):
+    """
+    Fetches the metadata for a given survey from the API.
+
+    Args:
+        base_url (str): The base URL for the API.
+        token (str): The authorization token for the API.
+        survey_id (str): The ID of the survey to fetch metadata for.
+
+    Returns:
+        dict: A JSON object containing the survey's metadata.
+    """
+    # Set the endpoint URL
+    endpoint_url = '{0}/API/v3/survey-definitions/{1}/metadata'.format(base_url, survey_id)
+    
+    # Pull the survey metadata
+    response = requests.get(endpoint_url, 
+                            headers={"Content-Type": "application/json",
+                                     "Authorization": "Bearer " + token}) 
+    
+    # Convert the data into a more readable format
+    response = response.json()    
+    return response
+
+
+def change_survey_metadata(base_url, access_token, survey_id, metadata):
+    """
+    Updates a survey's metadata.
+
+    Args:
+        base_url (str): Base URL for the API.
+        access_token (str): Access token for authentication.
+        survey_id (str): Survey ID.
+        metadata (dict): Metadata to update.
+
+    Returns:
+        dict: Response from the API.
+    """
+    survey_metadata_url = '{0}/API/v3/survey-definitions/{1}/metadata'.format(base_url, survey_id)
+    response = requests.put(survey_metadata_url,
+                            headers={"Content-Type": "application/json",
+                                     "Authorization": "Bearer " + access_token},
+                            data=metadata)
+    return response.json()
+
+
+def update_survey(base_url, access_token, survey_id, data):
+    """
+    Updates a survey's details.
+
+    Args:
+        base_url (str): Base URL for the API.
+        access_token (str): Access token for authentication.
+        survey_id (str): Survey ID.
+        data (dict): Data to update.
+
+    Returns:
+        dict: Response from the API.
+    """
+    survey_update_url = '{0}/API/v3/surveys/{1}'.format(base_url, survey_id)
+    response = requests.put(survey_update_url,
+                            headers={"Content-Type": "application/json",
+                                     "Authorization": "Bearer " + access_token},
+                            data=data)
+    return response.json()
+
+
+def get_full_survey_info(base_url, access_token, survey_id):
+    """
+    Retrieves full survey information, pulling more detailed info.
+
+    Args:
+        base_url (str): Base URL for the API.
+        access_token (str): Access token for authentication.
+        survey_id (str): Survey ID.
+
+    Returns:
+        dict: Full survey information.
+    """
+    full_survey_info_url = '{0}/API/v3/survey-definitions/{1}'.format(base_url, survey_id)
+    response = requests.get(full_survey_info_url,
+                            headers={"Content-Type": "application/json",
+                                     "Authorization": "Bearer " + access_token})
+    return response.json()
+
+
+def get_groups(base_url, access_token):
+    """
+    Retrieves all groups.
+
+    Args:
+        base_url (str): Base URL for the API.
+        access_token (str): Access token for authentication.
+
+    Returns:
+        dict: Group information.
+    """
+    groups_url = '{0}/API/v3/groups'.format(base_url)
+    response = requests.get(groups_url,
+                            headers={"Content-Type": "application/json",
+                                     "Authorization": "Bearer " + access_token})
+    return response.json()
+
+
+def share_survey(base_url, access_token, survey_id, data):
+    """
+    Shares a survey with a group or person.
+
+    Args:
+        base_url (str): Base URL for the API.
+        access_token (str): Access token for authentication.
+        survey_id (str): Survey ID.
+        data (dict): Data to share the survey.
+
+    Returns:
+        dict: Response from the API.
+    """
+    share_survey_url = '{0}/API/v3/surveys/{1}/permissions/collaborations'.format(base_url, survey_id)
+    response = requests.post(share_survey_url,
+                             headers={"Content-Type": "application/json",
+                                      "Authorization": "Bearer " + access_token},
+                             data=data)
+    return response.json()
+
+
+def get_user_identity(base_url, access_token):
+    """
+    Retrieves the identity of the current user.
+
+    Args:
+        base_url (str): Base URL for the API.
+        access_token (str): Access token for authentication.
+
+    Returns:
+        dict: User identity information.
+    """
+    identity_url = '{0}/API/v3/whoami'.format(base_url)
+    response = requests.get(identity_url,
+                            headers={"Content-Type": "application/json",
+                                     "Authorization": "Bearer " + access_token})
+    return response.json()
+
+
+# yul1.qualtrics.com/API/v3/surveys/{survey_id}/permissions/collaborations
 # 
 
 # curl --request POST \
-#   --url https://yul1.qualtrics.com/API/v3/surveys/surveyId/permissions/collaborations \
+#   --url https://yul1.qualtrics.com/API/v3/surveys/survey_id/permissions/collaborations \
 #   --header 'Content-Type: application/json' \
 #   --header 'X-API-TOKEN: ' \
 #   --data '{
