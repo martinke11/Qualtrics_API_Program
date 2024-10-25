@@ -84,6 +84,7 @@ def get_token(base_url, client_id, client_secret, data):
        - read:survey_responses
        - read:survey_sessions
        - read:surveys
+       - read:users
        - write:automations
        - write:contact_frequency_rules
        - write:contact_transactions
@@ -104,6 +105,67 @@ def get_token(base_url, client_id, client_secret, data):
        - write:survey_sessions
        - write:surveys
    """
+    manage:activity_logs
+    manage:all
+    manage:contact_frequency_rules
+    manage:contact_transactions
+    manage:customer_data_requests
+    manage:directories
+    manage:directory_contacts
+    manage:distributions
+    manage:divisions
+    manage:erasure_requests
+    manage:groups
+    manage:libraries
+    manage:mailing_list_contacts
+    manage:mailing_lists
+    manage:organizations
+    manage:participants
+    manage:samples
+    manage:subscriptions
+    manage:survey_responses
+    manage:survey_sessions
+    manage:surveys
+    read:activity_logs
+    read:contact_frequency_rules
+    read:contact_transactions
+    read:directories
+    read:directory_contacts
+    read:distributions
+    read:divisions
+    read:groups
+    read:imported_data_projects
+    read:libraries
+    read:mailing_list_contacts
+    read:mailing_lists
+    read:organizations
+    read:participants
+    read:samples
+    read:subscriptions
+    read:survey_responses
+    read:survey_sessions
+    read:users
+    read:surveys
+    write:automations
+    write:contact_frequency_rules
+    write:contact_transactions
+    write:directory_contacts
+    write:distributions
+    write:divisions
+    write:embedded_dashboards
+    write:embedded_xid_profile_cards
+    write:groups
+    write:imported_data_projects
+    write:libraries
+    write:mailing_list_contacts
+    write:mailing_lists
+    write:participants
+    write:samples
+    write:subscriptions
+    write:survey_responses
+    write:survey_sessions
+    write:surveys
+    write:users
     manage:subscriptions
     manage:survey_responses
     manage:survey_sessions
