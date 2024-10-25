@@ -13,7 +13,6 @@ from docx.shared import Pt
 import json
 import datetime
 import os
-#os.chdir('/Users/kieranmartin/Documents/SOI Data/Python/Qualtrics_API_Program')
 os.chdir('C:\\Users\\484843\\Documents\\GitHub\\Qualtrics_API_Program')
 from io import BytesIO
 import QualAPI as qa
