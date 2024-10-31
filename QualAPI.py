@@ -243,6 +243,31 @@ def get_survey_list(base_url, token):
     
     return survey_list_df
 
+# below a moved function
+def get_survey_id_by_name(survey_list_df, survey_name):
+    """
+    Retrieves the survey ID based on the survey name from a DataFrame.
+
+    Args:
+        survey_list_df (pd.DataFrame): A DataFrame containing survey data with 'name' and 'id' columns.
+        survey_name (str): The name of the survey to search for.
+
+    Returns:
+        str: The survey ID if found, or None if not found or multiple surveys have the same name.
+    """
+    # Pull the indices associated with the Survey Name
+    survey_name_indices = survey_list_df.loc[survey_list_df['name'] == survey_name].index[:]
+    
+    if len(survey_name_indices) > 1:
+        print('Multiple Surveys Have the Same Name!!!')
+        return None  # Return None to indicate multiple surveys found
+    elif len(survey_name_indices) == 0:
+        print('Cannot Find the Survey. Please Check that the Survey Name is Correct.')
+        return None  # Return None to indicate survey not found
+    else:
+        # Return the survey ID using the survey index
+        survey_id = survey_list_df.loc[survey_name_indices[0], 'id']
+        return survey_id
 
 def export_survey_responses(base_url, access_token, survey_id):
     """
@@ -266,6 +291,39 @@ def export_survey_responses(base_url, access_token, survey_id):
     # Convert the data into a more readable format
     response = response.json()    
     return response
+
+# below is a moved function:
+def wait_for_export_completion(base_url, token, survey_id, export_progress_id):
+    """
+    Waits for the survey response export to complete by checking its progress.
+
+    Args:
+        base_url (str): The base URL for the Qualtrics API.
+        token (str): The API token used for authorization.
+        survey_id (str): The ID of the survey being exported.
+        export_progress_id (str): The progress ID of the ongoing export.
+
+    Returns:
+        str: The file ID (fid) when the export is complete.
+    """
+    # Initialize the file ID to empty
+    fid = ""
+    
+    # Loop until the export is complete and the file ID is available
+    while len(fid) == 0:
+        # Check the progress of the export
+        response_export_progress = get_response_export_progress(base_url, token, survey_id, export_progress_id)
+
+        # Check if the export is 100% complete
+        if response_export_progress.get('result').get('percentComplete') == 100:
+            # Check if the status is 'complete'
+            if response_export_progress.get('result').get('status') == 'complete':
+                # Get the file ID
+                fid = response_export_progress.get('result').get('fileId')
+            else:
+                print("Status: " + response_export_progress.get('result').get('status'))
+    
+    return fid
 
 
 def get_response_export_progress(base_url, access_token, survey_id, export_progress_id):
@@ -312,6 +370,48 @@ def get_survey_responses(base_url, access_token, survey_id, file_id):
                             headers={"Content-Type": "application/json",
                                      "Authorization": "Bearer " + access_token})
     return response
+
+#below is a moved function:
+def extract_and_organize_responses(survey_responses):
+    """
+    Extracts and organizes survey responses from the JSON response.
+
+    Args:
+        survey_responses (requests.Response): The response object from the survey responses export.
+
+    Returns:
+        pd.DataFrame or None: A DataFrame containing the organized responses, or None if no responses are available.
+    """
+    # Convert the response content to JSON
+    survey_responses_json = survey_responses.json()
+    
+    # Extract the list of responses
+    responses = survey_responses_json.get('responses', [])
+    
+    if len(responses) > 0:
+        # Organize the responses using qa's organize_responses function
+        responses_df = organize_responses(responses)
+        return responses_df
+    else:
+        print('There is no data')
+        return None
+    
+# below is a moved function:
+def filter_preview_responses(responses_df):
+    """
+    Filters out survey preview responses from the responses DataFrame and resets the index.
+    
+    Parameters:
+    responses_df (pd.DataFrame): DataFrame containing survey responses with a 'distributionChannel' column.
+    
+    Returns:
+    pd.DataFrame: Filtered DataFrame with preview responses removed and index reset.
+    """
+    # Do not keep survey preview responses
+    keep_mask = np.array(responses_df['distributionChannel'] != 'preview')
+    filtered_df = responses_df.loc[keep_mask, :].reset_index(drop=True)
+    
+    return filtered_df
 
 
 def organize_responses(responses):
@@ -792,6 +892,75 @@ def create_data_type_dictionary(question_df, question_values_df):
     # Add the determined data types to the question DataFrame
     question_df['data_type'] = data_type
     return question_df
+
+# moved function below:
+def clean_responses(responses_df, question_df):
+    """
+    Extracts columns with questions from responses_df, removes rows with all NaN values 
+    in those columns, and resets the index.
+    
+    Parameters:
+    responses_df (pd.DataFrame): DataFrame containing survey responses.
+    question_df (pd.DataFrame): DataFrame containing questions, with a 'question_id' column.
+    
+    Returns:
+    pd.DataFrame: Cleaned DataFrame with rows containing all NaN values removed and index reset.
+    """
+    # Extract only columns with questions
+    df = responses_df.loc[:, question_df['question_id'].tolist()]
+
+    # Find rows with all NaN values in question columns
+    nan_mask = df.isna()
+    keep_mask = np.array(nan_mask.sum(axis=1) < len(df.columns))
+
+    # Filter responses_df based on keep_mask and reset index
+    responses_df = responses_df.loc[keep_mask, :].reset_index(drop=True)
+    
+    return responses_df
+
+
+def subset_by_date_range(responses_df, start_date, end_date):
+    """
+    Subset the responses DataFrame based on a specified date range.
+
+    This function filters the `responses_df` DataFrame to include only rows where the 
+    'recordedDate' column falls within the specified `start_date` and `end_date` range.
+    The 'recordedDate' column must be in a timezone-aware datetime format (UTC). The 
+    function will automatically convert `start_date` and `end_date` to UTC if they are 
+    timezone-naive.
+
+    Parameters:
+    ----------
+    responses_df : pd.DataFrame
+        The DataFrame containing survey responses with a 'recordedDate' column in ISO format.
+    start_date : str or datetime-like
+        The start of the date range, inclusive. It should be in a format compatible with 
+        `pd.to_datetime`.
+    end_date : str or datetime-like
+        The end of the date range, inclusive. It should be in a format compatible with 
+        `pd.to_datetime`.
+
+    Returns:
+    -------
+    pd.DataFrame
+        A subset of `responses_df` where the 'recordedDate' is within the specified date range.
+        
+    Example:
+    -------
+    >>> responses_df = subset_by_date_range(responses_df, '2024-06-27', '2024-07-08')
+    """
+
+    # Ensure the 'recordedDate' column is in datetime format and set to UTC if needed
+    responses_df['recordedDate'] = pd.to_datetime(responses_df['recordedDate']).dt.tz_convert('UTC')
+
+    # Convert the start and end dates to datetime with UTC timezone
+    start_date = pd.to_datetime(start_date).tz_localize('UTC')
+    end_date = pd.to_datetime(end_date).tz_localize('UTC')
+    
+    # Subset the DataFrame based on the date range
+    subset_df = responses_df[(responses_df['recordedDate'] >= start_date) & (responses_df['recordedDate'] <= end_date)]
+    
+    return subset_df
 
 
 def convert_kwargs_to_string(**kwargs):
