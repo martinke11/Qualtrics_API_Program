@@ -32,7 +32,7 @@ data_center = creds.get('DataCenter')
 base_url = f'https://{data_center}.qualtrics.com'
 
 # Define survey name and set up parameters for token request
-survey_name = "Spring 2024 COPA People's Academy: Post-Participation Survey"
+survey_name = "Test Survey"
 grant_type = 'client_credentials'
 scope = 'read:surveys read:survey_responses'
 data = qa.return_kwargs_as_dict(grant_type=grant_type, scope=scope)
@@ -71,6 +71,14 @@ nan_mask = df.isna()
 keep_mask = np.array(nan_mask.sum(axis=1) < len(df.columns))
 df = df.loc[keep_mask].reset_index(drop=True)
 
+###############################################################################
+################################## Testing ####################################
+unique_values = {col: question_df[col].unique() for col in question_df.columns}
+
+# Display the unique values for each column
+for col, values in unique_values.items():
+    print(f"Unique values in '{col}': {values}")
+    
 ###############################################################################
 # rest of code is for frequency analysis and report:
 # use line below to filter responses_df by specific dates if needed:
@@ -207,7 +215,7 @@ def generate_response_frequency(responses_df, question_df, question_values_df):
     return doc
 
 doc = generate_response_frequency(responses_df, question_df, question_values_df)
-doc.save('C:\\Users\\484843\\Documents\\GitHub\\Qualtrics_API_Program\\Reports\\test15.docx')
+doc.save('C:\\Users\\484843\\Documents\\GitHub\\Qualtrics_API_Program\\Reports\\test_matrix2.docx')
 
 
 

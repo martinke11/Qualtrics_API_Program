@@ -132,8 +132,8 @@ text_df = process_text_columns(text_df, free_text_columns)
 df = process_text_columns(df, free_text_columns)
 
 # Every data set will have some unique cleaning that must be done. That can
-# go here:
-text_df.replace('Deutschland', 'Germany', inplace=True)
+# go here: 
+#text_df.replace('Deutschland', 'Germany', inplace=True)
 
 
 def remove_emojis(df):

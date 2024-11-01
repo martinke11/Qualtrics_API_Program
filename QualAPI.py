@@ -371,6 +371,7 @@ def get_survey_responses(base_url, access_token, survey_id, file_id):
                                      "Authorization": "Bearer " + access_token})
     return response
 
+
 #below is a moved function:
 def extract_and_organize_responses(survey_responses):
     """
@@ -396,6 +397,7 @@ def extract_and_organize_responses(survey_responses):
         print('There is no data')
         return None
     
+
 # below is a moved function:
 def filter_preview_responses(responses_df):
     """
@@ -560,6 +562,7 @@ def strip_html(data):
     else:
         return data
 
+
 def extract_column_data_types(question_dictionary, responses_df, base_url, token, survey_id):
     """
     Extracts column data types and question details from a survey.
@@ -668,7 +671,9 @@ def is_numeric(current_question):
     return False
 
 
-def handle_matrix_question(current_question, split_column_name, question_text_list, long_text_id_list, question_value_list, answer_id_list, keep_question_list):
+def handle_matrix_question(current_question, split_column_name, 
+                           question_text_list, long_text_id_list, 
+                           question_value_list, answer_id_list, keep_question_list):
     """
     Handles extraction for Matrix question types.
     """
@@ -683,8 +688,23 @@ def handle_choice_or_scoring(current_question, split_column_name, long_text_id_l
     """
     Handles choice and scoring values for questions.
     """
-    # This logic would handle how choices or scores are appended
-    pass
+    # Pull the scores if available
+    scores = current_question.get('subQuestions').get(split_column_name[1]).get('scoring')
+    
+    if scores is None:
+        # If no scores, extract choices instead
+        choices = current_question.get('choices')
+        if choices:
+            for choice_key, choice in choices.items():
+                long_text_id_list.append(split_column_name[0])  # Append question ID
+                answer_id_list.append(choice.get('recode'))  # Append answer ID or recode
+                question_value_list.append(choice.get('choiceText'))  # Append choice text
+    else:
+        # If scores are available, extract score values
+        for score in scores:
+            long_text_id_list.append(split_column_name[0])  # Append question ID
+            question_value_list.append(score.get('value'))  # Append score value
+            answer_id_list.append(score.get('answerId') if score.get('answerId') is not None else score.get('value'))
 
 
 def handle_cs_question(current_question, split_column_name, question_text_list, is_numeric_list, keep_question_list):
@@ -867,28 +887,33 @@ def create_data_type_dictionary(question_df, question_values_df):
     
     # Determine the data type for each question
     data_type = []
-    for question_id in question_df['question_id']:
-        if question_id in column_data_types.get('MultipleChoice'):
+    for question_id, question_type, question_selector in zip(
+        question_df['question_id'], question_df['question_type'], question_df['question_selector']):
+        if question_id in column_data_types.get('MultipleChoice', []):
             data_type.append('MultipleChoice')
-        elif question_id in column_data_types.get('Numeric'):
+        elif question_id in column_data_types.get('Numeric', []):
             data_type.append('Numeric')
-        elif question_id in column_data_types.get('FreeText'):
+        elif question_id in column_data_types.get('FreeText', []):
             data_type.append('FreeText')
-        elif question_id in column_data_types.get('RankOrder'):
+        elif question_id in column_data_types.get('RankOrder', []):
             data_type.append('RankOrder')
-        elif question_id in column_data_types.get('FileUpload'):
+        elif question_id in column_data_types.get('FileUpload', []):
             data_type.append('FileUpload')
-        elif question_id in column_data_types.get('Group'):
+        elif question_id in column_data_types.get('Group', []):
             data_type.append('Group')
-        elif question_id in column_data_types.get('MetaData'):
+        elif question_id in column_data_types.get('MetaData', []):
             data_type.append('MetaData')
-        elif question_id in column_data_types.get('Draw'):
+        elif question_id in column_data_types.get('Draw', []):
             data_type.append('Draw')
-        elif question_id in column_data_types.get('Timing'):
+        elif question_id in column_data_types.get('Timing', []):
             data_type.append('Timing')
-        elif question_id in column_data_types.get('Dates'):
+        elif question_id in column_data_types.get('Dates', []):
             data_type.append('Dates')
-    
+        elif question_type == 'Matrix' and question_selector == 'Likert':
+            data_type.append('MultipleChoice')  # Assign 'MatrixLikert' type for Matrix-Likert questions
+        else:
+            data_type.append('Unknown')  # Default data type
+
     # Add the determined data types to the question DataFrame
     question_df['data_type'] = data_type
     return question_df
