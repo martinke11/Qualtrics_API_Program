@@ -158,10 +158,20 @@ def generate_response_frequency(responses_df, question_df, question_values_df):
         # Print the frequency table for the current question
         # print(f"Frequency table for question {col}:\n{temp_df}\n")
 
-    doc = Document()
+    # Define N as the number of responses
+    N = len(df)  # or len(df) if df is the main DataFrame used
+    number_of_responses_text = f"N = {N} responses"
+    
+    doc = Document()     
+    
+    # Add the number of responses to the document
+    doc.add_paragraph(survey_name, style='Normal')
+    doc.add_paragraph(number_of_responses_text, style='Normal')
+   
+    # add custum margins
     section = doc.sections[0]
     section.top_margin = section.bottom_margin = section.left_margin = section.right_margin = Inches(1)
-
+    
     for original_column, result_df in result_dict.items():
         qname = question_df.loc[question_df['question_id'] == original_column, 'question_name'].values[0]
         qtext = question_df.loc[question_df['question_id'] == original_column, 'question_text'].values[0]

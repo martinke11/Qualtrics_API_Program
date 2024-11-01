@@ -671,17 +671,35 @@ def is_numeric(current_question):
     return False
 
 
+# def handle_matrix_question(current_question, split_column_name, 
+#                            question_text_list, long_text_id_list, 
+#                            question_value_list, answer_id_list, keep_question_list):
+#     """
+#     Handles extraction for Matrix question types.
+#     """
+#     main_question_text = current_question.get('questionText')
+#     sub_question_text = current_question.get('subQuestions').get(split_column_name[1]).get('choiceText')
+#     question_text_list.append(f"{main_question_text}| {sub_question_text}")
+#     keep_question_list.append(True)
+#     handle_choice_or_scoring(current_question, split_column_name, long_text_id_list, question_value_list, answer_id_list)
+
 def handle_matrix_question(current_question, split_column_name, 
                            question_text_list, long_text_id_list, 
                            question_value_list, answer_id_list, keep_question_list):
-    """
-    Handles extraction for Matrix question types.
-    """
     main_question_text = current_question.get('questionText')
     sub_question_text = current_question.get('subQuestions').get(split_column_name[1]).get('choiceText')
     question_text_list.append(f"{main_question_text}| {sub_question_text}")
     keep_question_list.append(True)
-    handle_choice_or_scoring(current_question, split_column_name, long_text_id_list, question_value_list, answer_id_list)
+    
+    # Ensure each sub-question ID (e.g., QID11_1) is correctly captured
+    sub_question_id = split_column_name[0] + "_" + split_column_name[1]
+    
+    # Append answer choices for each sub-question with unique sub-question IDs
+    choices = current_question.get('choices')
+    for choice_key, choice in choices.items():
+        long_text_id_list.append(sub_question_id)  # Use sub-question ID here
+        answer_id_list.append(choice.get('recode'))
+        question_value_list.append(choice.get('choiceText'))
 
 
 def handle_choice_or_scoring(current_question, split_column_name, long_text_id_list, question_value_list, answer_id_list):
