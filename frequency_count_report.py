@@ -162,10 +162,14 @@ def generate_response_frequency(responses_df, question_df, question_values_df):
     N = len(df)  # or len(df) if df is the main DataFrame used
     number_of_responses_text = f"N = {N} responses"
     
+    # date_range = 
+    # survey_date_range = f"Survey Date Range: {date_range}"
     doc = Document()     
     
     # Add the number of responses to the document
     doc.add_paragraph(survey_name, style='Normal')
+    # add date range here:
+    # doc.add_paragraph(survey_date_range, style='Normal)
     doc.add_paragraph(number_of_responses_text, style='Normal')
    
     # add custum margins
