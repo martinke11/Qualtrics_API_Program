@@ -631,7 +631,9 @@ def extract_column_data_types(question_dictionary, responses_df, base_url, token
             elif current_type == 'CS':
                 handle_cs_question(current_question, split_column_name, question_text_list, is_numeric_list, keep_question_list)
             elif current_type == 'RO':
-                handle_ro_question(current_question, split_column_name, question_text_list, keep_question_list, base_url, token, survey_id)
+                handle_ro_question(current_question, split_column_name, question_text_list, long_text_id_list, question_value_list, answer_id_list, keep_question_list, base_url, token, survey_id)
+            # elif current_type == 'RO':
+            #     handle_ro_question(current_question, split_column_name, question_text_list, keep_question_list, base_url, token, survey_id)
             elif current_type == 'Slider':
                 handle_slider_question(current_question, split_column_name, question_text_list, is_numeric_list, keep_question_list)
             elif current_type == 'Timing':
@@ -702,27 +704,27 @@ def handle_matrix_question(current_question, split_column_name,
         question_value_list.append(choice.get('choiceText'))
 
 
-def handle_choice_or_scoring(current_question, split_column_name, long_text_id_list, question_value_list, answer_id_list):
-    """
-    Handles choice and scoring values for questions.
-    """
-    # Pull the scores if available
-    scores = current_question.get('subQuestions').get(split_column_name[1]).get('scoring')
+# def handle_choice_or_scoring(current_question, split_column_name, long_text_id_list, question_value_list, answer_id_list):
+#     """
+#     Handles choice and scoring values for questions.
+#     """
+#     # Pull the scores if available
+#     scores = current_question.get('subQuestions').get(split_column_name[1]).get('scoring')
     
-    if scores is None:
-        # If no scores, extract choices instead
-        choices = current_question.get('choices')
-        if choices:
-            for choice_key, choice in choices.items():
-                long_text_id_list.append(split_column_name[0])  # Append question ID
-                answer_id_list.append(choice.get('recode'))  # Append answer ID or recode
-                question_value_list.append(choice.get('choiceText'))  # Append choice text
-    else:
-        # If scores are available, extract score values
-        for score in scores:
-            long_text_id_list.append(split_column_name[0])  # Append question ID
-            question_value_list.append(score.get('value'))  # Append score value
-            answer_id_list.append(score.get('answerId') if score.get('answerId') is not None else score.get('value'))
+#     if scores is None:
+#         # If no scores, extract choices instead
+#         choices = current_question.get('choices')
+#         if choices:
+#             for choice_key, choice in choices.items():
+#                 long_text_id_list.append(split_column_name[0])  # Append question ID
+#                 answer_id_list.append(choice.get('recode'))  # Append answer ID or recode
+#                 question_value_list.append(choice.get('choiceText'))  # Append choice text
+#     else:
+#         # If scores are available, extract score values
+#         for score in scores:
+#             long_text_id_list.append(split_column_name[0])  # Append question ID
+#             question_value_list.append(score.get('value'))  # Append score value
+#             answer_id_list.append(score.get('answerId') if score.get('answerId') is not None else score.get('value'))
 
 
 def handle_cs_question(current_question, split_column_name, question_text_list, is_numeric_list, keep_question_list):
@@ -737,22 +739,57 @@ def handle_cs_question(current_question, split_column_name, question_text_list, 
     keep_question_list.append(True)
 
 
-def handle_ro_question(current_question, split_column_name, question_text_list, keep_question_list, base_url, token, survey_id):
+# def handle_ro_question(current_question, split_column_name, question_text_list, keep_question_list, base_url, token, survey_id):
+#     """
+#     Handles extraction for Rank Order (RO) question types.
+#     """
+#     if split_column_name[-1] == 'TEXT':
+#         question_text_list.append(current_question.get('questionText'))
+#         keep_question_list.append(True)
+#     else:
+#         survey_info = get_full_survey_info(base_url, token, survey_id)
+#         choice_order = survey_info.get('result').get('Questions').get(split_column_name[0]).get('ChoiceOrder')
+#         current_key = str(choice_order[int(split_column_name[1]) - 1])
+#         main_question_text = current_question.get('questionText')
+#         choices = current_question.get('choices')
+#         sub_question_text = choices.get(current_key).get('choiceText')
+#         question_text_list.append(f"{main_question_text}| {sub_question_text}")
+#         keep_question_list.append(True)
+def handle_ro_question(current_question, split_column_name, question_text_list, long_text_id_list, question_value_list, answer_id_list, keep_question_list, base_url, token, survey_id):
     """
-    Handles extraction for Rank Order (RO) question types.
+    Handles extraction for Rank Order (RO) question types, ensuring rank items are correctly added to question_values_df.
     """
     if split_column_name[-1] == 'TEXT':
         question_text_list.append(current_question.get('questionText'))
         keep_question_list.append(True)
     else:
         survey_info = get_full_survey_info(base_url, token, survey_id)
-        choice_order = survey_info.get('result').get('Questions').get(split_column_name[0]).get('ChoiceOrder')
-        current_key = str(choice_order[int(split_column_name[1]) - 1])
+        question_id_prefix = split_column_name[0]  # Example: "QID10"
+        
+        # Retrieve choice order for the main question
+        choice_order = survey_info['result']['Questions'][question_id_prefix].get('ChoiceOrder')
+        
+        # Get the rank position for this column (e.g., "1" in "QID10_1")
+        rank_position = int(split_column_name[1]) - 1  # Adjust to zero-based indexing
+        current_key = str(choice_order[rank_position])
+
         main_question_text = current_question.get('questionText')
         choices = current_question.get('choices')
+        
+        # Retrieve sub-question text for this rank option
         sub_question_text = choices.get(current_key).get('choiceText')
-        question_text_list.append(f"{main_question_text}| {sub_question_text}")
+        question_text_list.append(f"{main_question_text} | {sub_question_text}")
         keep_question_list.append(True)
+
+        # Append numeric ranks for each choice in the rank order question
+        rank_question_id = f"{question_id_prefix}_{rank_position + 1}"
+        for rank, choice_key in enumerate(choice_order, start=1):
+            long_text_id_list.append(rank_question_id)  # Use unique rank item ID here
+            answer_id_list.append(rank)
+            question_value_list.append(str(rank))  # Rank values as strings (1, 2, 3, etc.)
+
+
+
 
 
 def handle_slider_question(current_question, split_column_name, question_text_list, is_numeric_list, keep_question_list):
@@ -887,7 +924,8 @@ def create_data_type_dictionary(question_df, question_values_df):
     group_columns = set(question_df['question_id'][question_df['question_type'] == 'PGR'])
     
     # Get the numeric columns
-    numeric_columns = set(question_df['question_id'][question_df['is_numeric']])
+    # numeric_columns = set(question_df['question_id'][question_df['is_numeric']])
+    numeric_columns = set(question_df['question_id'][question_df['is_numeric'] | question_df['question_id'].isin(rank_order_columns)])
     
     # Create a dictionary of all the different column types
     column_data_types = {
@@ -914,7 +952,9 @@ def create_data_type_dictionary(question_df, question_values_df):
         elif question_id in column_data_types.get('FreeText', []):
             data_type.append('FreeText')
         elif question_id in column_data_types.get('RankOrder', []):
-            data_type.append('RankOrder')
+            data_type.append('MultipleChoice')
+        # elif question_id in column_data_types.get('RankOrder', []):
+        #     data_type.append('RankOrder')
         elif question_id in column_data_types.get('FileUpload', []):
             data_type.append('FileUpload')
         elif question_id in column_data_types.get('Group', []):
