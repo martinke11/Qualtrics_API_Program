@@ -243,7 +243,7 @@ def get_survey_list(base_url, token):
     
     return survey_list_df
 
-# below a moved function
+
 def get_survey_id_by_name(survey_list_df, survey_name):
     """
     Retrieves the survey ID based on the survey name from a DataFrame.
@@ -269,6 +269,7 @@ def get_survey_id_by_name(survey_list_df, survey_name):
         survey_id = survey_list_df.loc[survey_name_indices[0], 'id']
         return survey_id
 
+
 def export_survey_responses(base_url, access_token, survey_id):
     """
     Initiates the export of survey responses from Qualtrics.
@@ -292,7 +293,7 @@ def export_survey_responses(base_url, access_token, survey_id):
     response = response.json()    
     return response
 
-# below is a moved function:
+
 def wait_for_export_completion(base_url, token, survey_id, export_progress_id):
     """
     Waits for the survey response export to complete by checking its progress.
@@ -398,7 +399,6 @@ def extract_and_organize_responses(survey_responses):
         return None
     
 
-# below is a moved function:
 def filter_preview_responses(responses_df):
     """
     Filters out survey preview responses from the responses DataFrame and resets the index.
@@ -632,10 +632,8 @@ def extract_column_data_types(question_dictionary, responses_df, base_url, token
                 handle_cs_question(current_question, split_column_name, question_text_list, is_numeric_list, keep_question_list)
             elif current_type == 'RO':
                 handle_ro_question(current_question, split_column_name, question_text_list, long_text_id_list, question_value_list, answer_id_list, keep_question_list, base_url, token, survey_id)
-            # elif current_type == 'RO':
-            #     handle_ro_question(current_question, split_column_name, question_text_list, keep_question_list, base_url, token, survey_id)
             elif current_type == 'Slider':
-                handle_slider_question(current_question, split_column_name, question_text_list, is_numeric_list, keep_question_list)
+                handle_slider_question(current_question, split_column_name, question_text_list, is_numeric_list, keep_question_list, long_text_id_list, question_value_list, answer_id_list)
             elif current_type == 'Timing':
                 handle_timing_question(current_question, question_text_list, is_numeric_list, keep_question_list)
             elif current_type == 'SS':
@@ -664,26 +662,22 @@ def extract_column_data_types(question_dictionary, responses_df, base_url, token
 
 def is_numeric(current_question):
     """
-    Checks if a question has a numeric type based on validation settings.
+    Checks if a question should be treated as numeric based on type or validation settings.
     """
+    question_type = current_question.get('questionType', {}).get('type')
+    
+    # Treat Rank Order and Slider questions as numeric by default
+    if question_type in ['RO', 'Slider']:
+        return True
+    
+    # Check for validation settings indicating numeric input
     if 'validation' in current_question:
         current_validation = current_question.get('validation')
         if 'type' in current_validation and current_validation.get('type') == 'ValidNumber':
             return True
+    
     return False
 
-
-# def handle_matrix_question(current_question, split_column_name, 
-#                            question_text_list, long_text_id_list, 
-#                            question_value_list, answer_id_list, keep_question_list):
-#     """
-#     Handles extraction for Matrix question types.
-#     """
-#     main_question_text = current_question.get('questionText')
-#     sub_question_text = current_question.get('subQuestions').get(split_column_name[1]).get('choiceText')
-#     question_text_list.append(f"{main_question_text}| {sub_question_text}")
-#     keep_question_list.append(True)
-#     handle_choice_or_scoring(current_question, split_column_name, long_text_id_list, question_value_list, answer_id_list)
 
 def handle_matrix_question(current_question, split_column_name, 
                            question_text_list, long_text_id_list, 
@@ -704,29 +698,6 @@ def handle_matrix_question(current_question, split_column_name,
         question_value_list.append(choice.get('choiceText'))
 
 
-# def handle_choice_or_scoring(current_question, split_column_name, long_text_id_list, question_value_list, answer_id_list):
-#     """
-#     Handles choice and scoring values for questions.
-#     """
-#     # Pull the scores if available
-#     scores = current_question.get('subQuestions').get(split_column_name[1]).get('scoring')
-    
-#     if scores is None:
-#         # If no scores, extract choices instead
-#         choices = current_question.get('choices')
-#         if choices:
-#             for choice_key, choice in choices.items():
-#                 long_text_id_list.append(split_column_name[0])  # Append question ID
-#                 answer_id_list.append(choice.get('recode'))  # Append answer ID or recode
-#                 question_value_list.append(choice.get('choiceText'))  # Append choice text
-#     else:
-#         # If scores are available, extract score values
-#         for score in scores:
-#             long_text_id_list.append(split_column_name[0])  # Append question ID
-#             question_value_list.append(score.get('value'))  # Append score value
-#             answer_id_list.append(score.get('answerId') if score.get('answerId') is not None else score.get('value'))
-
-
 def handle_cs_question(current_question, split_column_name, question_text_list, is_numeric_list, keep_question_list):
     """
     Handles extraction for Cumulative Sum (CS) question types.
@@ -739,22 +710,6 @@ def handle_cs_question(current_question, split_column_name, question_text_list, 
     keep_question_list.append(True)
 
 
-# def handle_ro_question(current_question, split_column_name, question_text_list, keep_question_list, base_url, token, survey_id):
-#     """
-#     Handles extraction for Rank Order (RO) question types.
-#     """
-#     if split_column_name[-1] == 'TEXT':
-#         question_text_list.append(current_question.get('questionText'))
-#         keep_question_list.append(True)
-#     else:
-#         survey_info = get_full_survey_info(base_url, token, survey_id)
-#         choice_order = survey_info.get('result').get('Questions').get(split_column_name[0]).get('ChoiceOrder')
-#         current_key = str(choice_order[int(split_column_name[1]) - 1])
-#         main_question_text = current_question.get('questionText')
-#         choices = current_question.get('choices')
-#         sub_question_text = choices.get(current_key).get('choiceText')
-#         question_text_list.append(f"{main_question_text}| {sub_question_text}")
-#         keep_question_list.append(True)
 def handle_ro_question(current_question, split_column_name, question_text_list, long_text_id_list, question_value_list, answer_id_list, keep_question_list, base_url, token, survey_id):
     """
     Handles extraction for Rank Order (RO) question types, ensuring rank items are correctly added to question_values_df.
@@ -789,19 +744,36 @@ def handle_ro_question(current_question, split_column_name, question_text_list, 
             question_value_list.append(str(rank))  # Rank values as strings (1, 2, 3, etc.)
 
 
-
-
-
-def handle_slider_question(current_question, split_column_name, question_text_list, is_numeric_list, keep_question_list):
+def handle_slider_question(current_question, split_column_name, question_text_list, is_numeric_list, 
+                           keep_question_list, long_text_id_list, question_value_list, answer_id_list):
     """
-    Handles extraction for Slider question types.
+    Handles extraction for Slider question types, ensuring each possible value on the slider is added to question_values_df,
+    with the full question_id including any suffix to distinguish sub-questions.
+    
+    IMPORTANT: qualtrics API doesnt return the number of stars available when pulling 'Choices'
+    instead 'Choices' is how many slider sub-questions there are. Therefore, the slider_range below
+    will need to be adjusted based on how many stars were available in the survey. 
+    Suggest that we keep to max 5 to avoid issues with this.
     """
     main_question_text = current_question.get('questionText')
     choices = current_question.get('choices')
-    sub_question_text = choices.get(split_column_name[1]).get('choiceText')
-    question_text_list.append(f"{main_question_text}| {sub_question_text}")
-    is_numeric_list[-1] = True
-    keep_question_list.append(True)
+    
+    if split_column_name[-1] == 'TEXT':
+        question_text_list.append(main_question_text)
+        keep_question_list.append(True)
+    else:
+        # Assuming sliders range from 1 to 5; adjust if range differs
+        slider_range = range(1, 6)  # Replace with actual slider range if known
+        full_question_id = f"{split_column_name[0]}_{split_column_name[1]}"  # e.g., "QID12_1"
+        
+        for value in slider_range:
+            long_text_id_list.append(full_question_id)
+            answer_id_list.append(value)
+            question_value_list.append(str(value))  # Store slider values as strings
+        
+        sub_question_text = choices.get(split_column_name[1], {}).get('choiceText', '')
+        question_text_list.append(f"{main_question_text} | {sub_question_text}")
+        keep_question_list.append(True)
 
 
 def handle_timing_question(current_question, question_text_list, is_numeric_list, keep_question_list):
@@ -945,16 +917,16 @@ def create_data_type_dictionary(question_df, question_values_df):
     data_type = []
     for question_id, question_type, question_selector in zip(
         question_df['question_id'], question_df['question_type'], question_df['question_selector']):
-        if question_id in column_data_types.get('MultipleChoice', []):
-            data_type.append('MultipleChoice')
+        
+        # Prioritize Rank Order
+        if question_id in column_data_types.get('RankOrder', []):
+            data_type.append('Numeric')
         elif question_id in column_data_types.get('Numeric', []):
             data_type.append('Numeric')
+        elif question_id in column_data_types.get('MultipleChoice', []):
+            data_type.append('MultipleChoice')
         elif question_id in column_data_types.get('FreeText', []):
             data_type.append('FreeText')
-        elif question_id in column_data_types.get('RankOrder', []):
-            data_type.append('MultipleChoice')
-        # elif question_id in column_data_types.get('RankOrder', []):
-        #     data_type.append('RankOrder')
         elif question_id in column_data_types.get('FileUpload', []):
             data_type.append('FileUpload')
         elif question_id in column_data_types.get('Group', []):
@@ -976,7 +948,7 @@ def create_data_type_dictionary(question_df, question_values_df):
     question_df['data_type'] = data_type
     return question_df
 
-# moved function below:
+
 def clean_responses(responses_df, question_df):
     """
     Extracts columns with questions from responses_df, removes rows with all NaN values 

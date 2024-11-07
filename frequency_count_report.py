@@ -75,59 +75,8 @@ df = responses_df.loc[:, question_df['question_id'].tolist()]
 nan_mask = df.isna()
 keep_mask = np.array(nan_mask.sum(axis=1) < len(df.columns))
 df = df.loc[keep_mask].reset_index(drop=True)
-
-###############################################################################
-################################## Testing ####################################
-unique_values = {col: question_df[col].unique() for col in question_df.columns}
-
-# Display the unique values for each column
-for col, values in unique_values.items():
-    print(f"Unique values in '{col}': {values}")
     
 ###############################################################################
-# rest of code is for frequency analysis and report:
-# use line below to filter responses_df by specific dates if needed:
-# responses_df = qa.subset_by_date_range(responses_df, '2024-06-27', '2024-07-08')
-
-# def process_response_column(responses_df, column):
-#     """
-#     Cleans and processes a multiple-choice response column by checking types 
-#     and handling lists, NaNs, and other cases as in the original structure.
-    
-#     Parameters:
-#     responses_df (pd.DataFrame): Survey responses DataFrame.
-#     column (str): Column name for the multiple-choice question.
-    
-#     Returns:
-#     list: Processed list of responses with 'NULL' for NaNs.
-#     """
-#     new_list = []
-    
-#     # Check if the column is of object type
-#     if isinstance(responses_df[column], object):
-#         for response in responses_df[column]:
-#             if isinstance(response, list):
-#                 # Add the list of responses
-#                 new_list += response
-#             elif isinstance(response, float):
-#                 # Check if it's NaN and handle accordingly
-#                 if np.isnan(response):
-#                     new_list.append('NULL')
-#                 else:
-#                     new_list.append(str(int(response)))
-#             else:
-#                 print('Problems with conversion')
-                
-#     elif responses_df[column].dtype == 'float':
-#         for response in responses_df[column]:
-#             if np.isnan(response):
-#                 new_list.append('NULL')
-#             else:
-#                 new_list.append(str(int(response)))
-#     else:
-#         print('Problems with conversion')
-    
-#     return new_list
 def process_response_column(responses_df, column):
     """
     Cleans and processes a multiple-choice or rank order response column by checking types 
@@ -169,119 +118,48 @@ def process_response_column(responses_df, column):
     return new_list
 
 
-
-
-
-print(question_values_df.dtypes)
-
-for col in question_df[question_df['data_type'] == 'MultipleChoice'].question_id:
-    print(f"Unique answer_id values in question_values_df for {col}:")
-    print(question_values_df[question_values_df['question_id'] == col]['answer_id'].unique())
-
-# def generate_response_frequency(responses_df, question_df, question_values_df):
-#     """
-#     Generates frequency tables and plots for multiple-choice questions without regional question filtering,
-#     and saves them to a Word document.
+def process_multiple_choice_question(responses_df, col, question_values_df):
+    """
+    Processes a multiple-choice question to generate a frequency table.
+    """
+    new_list = process_response_column(responses_df, col)
+    freq_dist = Counter(new_list)
+    freq_df = pd.DataFrame.from_dict(freq_dist, orient='index').reset_index()
+    freq_df.columns = ['answer_id', 'N']
     
-#     Parameters:
-#     responses_df (pd.DataFrame): Survey responses DataFrame.
-#     question_df (pd.DataFrame): DataFrame with question details, including 'question_id' and 'data_type'.
-#     question_values_df (pd.DataFrame): DataFrame with answer IDs and question values.
-
-#     Returns:
-#     Document: A Word document with tables and bar charts for each question.
-#     """
-#     result_dict = {}
-#     multiple_choice_columns = list(question_df.question_id[question_df["data_type"] == 'MultipleChoice'])
-
-#     for col in multiple_choice_columns:
-#         new_list = process_response_column(responses_df, col)
-#         freq_dist = Counter(new_list)
-#         freq_df = pd.DataFrame.from_dict(freq_dist, orient='index').reset_index()
-#         freq_df.columns = ['answer_id', 'N']
-        
-#         current_values = question_values_df[question_values_df['question_id'] == col][['answer_id', 'question_value']]
-#         temp_df = pd.merge(current_values, freq_df, on='answer_id', how='outer').fillna({'N': 0, 'question_value': ''})
-#         temp_df['N'] = temp_df['N'].astype(int)
-#         temp_df['Pct'] = (temp_df['N'] / len(responses_df) * 100).round(1).astype(str) + '%'
-#         temp_df.columns = ['Code', 'Value', 'Count', 'Frequency']
-        
-#         result_dict[col] = temp_df
-#         # Print the frequency table for the current question
-#         # print(f"Frequency table for question {col}:\n{temp_df}\n")
-
-#     # Define N as the number of responses
-#     N = len(df)  # or len(df) if df is the main DataFrame used
-#     number_of_responses_text = f"N = {N} responses"
+    current_values = question_values_df[question_values_df['question_id'] == col][['answer_id', 'question_value']]
+    temp_df = pd.merge(current_values, freq_df, on='answer_id', how='outer').fillna({'N': 0, 'question_value': ''})
+    temp_df['N'] = temp_df['N'].astype(int)
+    temp_df['Pct'] = (temp_df['N'] / len(responses_df) * 100).round(1).astype(str) + '%'
+    temp_df.columns = ['Code', 'Value', 'Count', 'Frequency']
     
-#     # date_range = 
-#     # survey_date_range = f"Survey Date Range: {date_range}"
-#     doc = Document()     
+    return temp_df
+
+
+def process_numeric_question(responses_df, col, question_values_df):
+    """
+    Processes a numeric question to generate a frequency table.
+    """
+    new_list = process_response_column(responses_df, col)
+    freq_dist = Counter(new_list)
+    freq_df = pd.DataFrame.from_dict(freq_dist, orient='index').reset_index()
+    freq_df.columns = ['answer_id', 'N']
     
-#     # Add the number of responses to the document
-#     doc.add_paragraph(survey_name, style='Normal')
-#     # add date range here:
-#     # doc.add_paragraph(survey_date_range, style='Normal)
-#     doc.add_paragraph(number_of_responses_text, style='Normal')
-   
-#     # add custum margins
-#     section = doc.sections[0]
-#     section.top_margin = section.bottom_margin = section.left_margin = section.right_margin = Inches(1)
+    current_values = question_values_df[question_values_df['question_id'] == col][['answer_id', 'question_value']]
+    temp_df = pd.merge(current_values, freq_df, on='answer_id', how='outer').fillna({'N': 0, 'question_value': ''})
+    temp_df['N'] = temp_df['N'].astype(int)
+    temp_df['Pct'] = (temp_df['N'] / len(responses_df) * 100).round(1).astype(str) + '%'
+    temp_df.columns = ['Value', 'Value_Label', 'Count', 'Frequency']
     
-#     for original_column, result_df in result_dict.items():
-#         qname = question_df.loc[question_df['question_id'] == original_column, 'question_name'].values[0]
-#         qtext = question_df.loc[question_df['question_id'] == original_column, 'question_text'].values[0]
-#         mapped_text = f"{qname}: {qtext}"
-        
-#         doc.add_heading(mapped_text, level=1)
-#         filtered_result_df = result_df
+    # Drop the 'Value_Label' (formerly 'Code') column
+    temp_df = temp_df[['Value', 'Count', 'Frequency']]
+    
+    return temp_df
 
-#         table = doc.add_table(rows=filtered_result_df.shape[0] + 1, cols=filtered_result_df.shape[1])
-#         table.style = 'Table Grid'
-        
-#         for col_idx, column_name in enumerate(filtered_result_df.columns):
-#             cell = table.cell(0, col_idx)
-#             cell.text = column_name
-#             cell.paragraphs[0].alignment = 1
-        
-#         for row_idx in range(filtered_result_df.shape[0]):
-#             for col_idx, value in enumerate(filtered_result_df.iloc[row_idx]):
-#                 cell = table.cell(row_idx + 1, col_idx)
-#                 cell.text = str(value)
-#                 cell.paragraphs[0].alignment = 1 if col_idx != 1 else 0  # Align 'Value' left, others center
 
-#         if len(filtered_result_df) < 10:
-#             fig, ax = plt.subplots(figsize=(7, 4.5))
-#             frequency_values = filtered_result_df['Frequency'].str.rstrip('%').astype(float)
-#             bar_colors = ['dodgerblue' if code != 'NULL' else 'crimson' for code in filtered_result_df['Code']]
-#             ax.bar(filtered_result_df['Code'], frequency_values, color=bar_colors, width=0.4)
-#             ax.set_xlabel('Code')
-#             ax.set_ylabel('Frequency (%)')
-#             ax.set_xticks(filtered_result_df['Code'])
-#             ax.set_ylim(0, 100)
-
-#             for p, freq in zip(ax.patches, filtered_result_df['Frequency']):
-#                 ax.annotate(f'{freq}', (p.get_x() + p.get_width() / 2, p.get_height() + 3), ha='center', fontsize=10)
-
-#             image_stream = BytesIO()
-#             plt.savefig(image_stream, format='png')
-#             plt.close(fig)
-#             image_stream.seek(0)
-#             doc.add_picture(image_stream, width=Inches(7), height=Inches(4.5))
-            
-#             # If you WANT to save the indivual plots use code below instead:
-#             # Save the bar chart as an image
-#             # chart_filename = f'bar_chart_{original_column}.png'
-#             # plt.savefig(chart_filename)
-#             # plt.close(fig)  # Close the figure
-#             # doc.add_picture(chart_filename, width=Inches(7), height=Inches(4.5))
-
-#         doc.add_page_break()
-
-#     return doc
 def generate_response_frequency(responses_df, question_df, question_values_df):
     """
-    Generates frequency tables and plots for multiple-choice questions without regional question filtering,
+    Generates frequency tables and plots for multiple-choice and numeric-choice questions without regional question filtering,
     and saves them to a Word document.
     
     Parameters:
@@ -293,92 +171,104 @@ def generate_response_frequency(responses_df, question_df, question_values_df):
     Document: A Word document with tables and bar charts for each question.
     """
     result_dict = {}
+    numeric_result_dict = {}
     multiple_choice_columns = list(question_df.question_id[question_df["data_type"] == 'MultipleChoice'])
+    numeric_choice_columns = list(question_df.question_id[question_df["data_type"] == 'Numeric'])
     
+    # Process multiple-choice questions
     for col in multiple_choice_columns:
-        new_list = process_response_column(responses_df, col)
-        freq_dist = Counter(new_list)
-        freq_df = pd.DataFrame.from_dict(freq_dist, orient='index').reset_index()
-        
-        # Ensure freq_df has both columns: 'answer_id' and 'N'
-        if freq_df.shape[1] == 1:
-            freq_df.columns = ['answer_id']
-            freq_df['N'] = 0
-        elif freq_df.empty:  # If freq_df is empty
-            freq_df = pd.DataFrame(columns=['answer_id', 'N'])
-        else:
-            freq_df.columns = ['answer_id', 'N']
-        
-        current_values = question_values_df[question_values_df['question_id'] == col][['answer_id', 'question_value']]
-        temp_df = pd.merge(current_values, freq_df, on='answer_id', how='outer').fillna({'N': 0, 'question_value': ''})
-        temp_df['N'] = temp_df['N'].astype(int)
-        temp_df['Pct'] = (temp_df['N'] / len(responses_df) * 100).round(1).astype(str) + '%'
-        temp_df.columns = ['Code', 'Value', 'Count', 'Frequency']
-        
-        result_dict[col] = temp_df
-
-    # Define N as the number of responses
+        result_dict[col] = process_multiple_choice_question(responses_df, col, question_values_df)
+    
+    # Process numeric questions
+    for col in numeric_choice_columns:
+        numeric_result_dict[col] = process_numeric_question(responses_df, col, question_values_df)
+    
+    # Document setup
     N = len(responses_df)
     number_of_responses_text = f"N = {N} responses"
+    doc = Document()
     
-    doc = Document()     
-    doc.add_paragraph(survey_name, style='Normal')
+    # Add the number of responses to the document
+    doc.add_paragraph("Survey Name", style='Normal')  # Replace with actual survey name if available
     doc.add_paragraph(number_of_responses_text, style='Normal')
     
+    # Set custom margins
     section = doc.sections[0]
     section.top_margin = section.bottom_margin = section.left_margin = section.right_margin = Inches(1)
     
+    # Add tables and charts for multiple-choice questions
     for original_column, result_df in result_dict.items():
         qname = question_df.loc[question_df['question_id'] == original_column, 'question_name'].values[0]
         qtext = question_df.loc[question_df['question_id'] == original_column, 'question_text'].values[0]
         mapped_text = f"{qname}: {qtext}"
         
         doc.add_heading(mapped_text, level=1)
-        filtered_result_df = result_df
+        add_table_and_chart_to_doc(doc, result_df)
+    
+    # Add tables and charts for numeric-choice questions
+    for original_column, result_df in numeric_result_dict.items():
+        qname = question_df.loc[question_df['question_id'] == original_column, 'question_name'].values[0]
+        qtext = question_df.loc[question_df['question_id'] == original_column, 'question_text'].values[0]
+        mapped_text = f"{qname}: {qtext}"
         
-        table = doc.add_table(rows=filtered_result_df.shape[0] + 1, cols=filtered_result_df.shape[1])
-        table.style = 'Table Grid'
-        
-        for col_idx, column_name in enumerate(filtered_result_df.columns):
-            cell = table.cell(0, col_idx)
-            cell.text = column_name
-            cell.paragraphs[0].alignment = 1
-        
-        for row_idx in range(filtered_result_df.shape[0]):
-            for col_idx, value in enumerate(filtered_result_df.iloc[row_idx]):
-                cell = table.cell(row_idx + 1, col_idx)
-                cell.text = str(value)
-                cell.paragraphs[0].alignment = 1 if col_idx != 1 else 0  # Align 'Value' left, others center
-        
-        if len(filtered_result_df) < 10:
-            fig, ax = plt.subplots(figsize=(7, 4.5))
-            frequency_values = filtered_result_df['Frequency'].str.rstrip('%').astype(float)
-            bar_colors = ['dodgerblue' if code != 'NULL' else 'crimson' for code in filtered_result_df['Code']]
-            ax.bar(filtered_result_df['Code'], frequency_values, color=bar_colors, width=0.4)
-            ax.set_xlabel('Code')
-            ax.set_ylabel('Frequency (%)')
-            ax.set_xticks(filtered_result_df['Code'])
-            ax.set_ylim(0, 100)
-            
-            for p, freq in zip(ax.patches, filtered_result_df['Frequency']):
-                ax.annotate(f'{freq}', (p.get_x() + p.get_width() / 2, p.get_height() + 3), ha='center', fontsize=10)
-            
-            image_stream = BytesIO()
-            plt.savefig(image_stream, format='png')
-            plt.close(fig)
-            image_stream.seek(0)
-            doc.add_picture(image_stream, width=Inches(7), height=Inches(4.5))
-        
-        doc.add_page_break()
+        doc.add_heading(mapped_text, level=1)
+        add_table_and_chart_to_doc(doc, result_df, is_numeric=True)
     
     return doc
 
 
+def add_table_and_chart_to_doc(doc, result_df, is_numeric=False):
+    """
+    Adds a frequency table and bar chart to the document for each question.
+    For numeric questions, the chart and table use 'Value' instead of 'Code'.
+    """
+    # Determine column labels based on whether the question is numeric or multiple-choice
+    code_column = 'Value' if is_numeric else 'Code'
+    chart_label = 'Value' if is_numeric else 'Code'
+    
+    # Rename columns for the table if necessary
+    display_df = result_df.rename(columns={'Code': code_column}) if is_numeric else result_df
+
+    # Create and style table in the document
+    table = doc.add_table(rows=display_df.shape[0] + 1, cols=display_df.shape[1])
+    table.style = 'Table Grid'
+    
+    for col_idx, column_name in enumerate(display_df.columns):
+        cell = table.cell(0, col_idx)
+        cell.text = column_name
+        cell.paragraphs[0].alignment = 1  # Center alignment
+    
+    for row_idx in range(display_df.shape[0]):
+        for col_idx, value in enumerate(display_df.iloc[row_idx]):
+            cell = table.cell(row_idx + 1, col_idx)
+            cell.text = str(value)
+            cell.paragraphs[0].alignment = 1 if col_idx != 1 else 0  # Align 'Value' left, others center
+
+    # Create a bar chart if the result has fewer than 10 entries
+    if len(display_df) < 10:
+        fig, ax = plt.subplots(figsize=(7, 4.5))
+        frequency_values = display_df['Frequency'].str.rstrip('%').astype(float)
+        bar_colors = ['dodgerblue' if val != 'NULL' else 'crimson' for val in display_df[code_column]]
+        ax.bar(display_df[code_column], frequency_values, color=bar_colors, width=0.4)
+        ax.set_xlabel(chart_label)
+        ax.set_ylabel('Frequency (%)')
+        ax.set_xticks(display_df[code_column])
+        ax.set_ylim(0, 100)
+
+        for p, freq in zip(ax.patches, display_df['Frequency']):
+            ax.annotate(f'{freq}', (p.get_x() + p.get_width() / 2, p.get_height() + 3), ha='center', fontsize=10)
+
+        image_stream = BytesIO()
+        plt.savefig(image_stream, format='png')
+        plt.close(fig)
+        image_stream.seek(0)
+        doc.add_picture(image_stream, width=Inches(7), height=Inches(4.5))
+    
+    doc.add_page_break()
+
+    return doc
+
+
 doc = generate_response_frequency(responses_df, question_df, question_values_df)
-doc.save('C:\\Users\\484843\\Documents\\GitHub\\Qualtrics_API_Program\\Reports\\test_ro5.docx')
-
-
-
-
-
+doc.save('C:\\Users\\484843\\Documents\\GitHub\\Qualtrics_API_Program\\Reports\\test_final3.docx')
 
