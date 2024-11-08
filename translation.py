@@ -25,7 +25,6 @@ from collections import Counter
 from googletrans import Translator
 #pip freeze | grep googletrans
 #!!pip3 install googletrans==4.0.0rc1
-
 import time
 import emoji
 import warnings
@@ -36,7 +35,7 @@ from textblob import TextBlob
 warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 warnings.simplefilter(action='ignore', category=pd.errors.DtypeWarning)
 pd.options.mode.chained_assignment = None 
-###############################################################################
+
 # Load Qualtrics credentials from a JSON file
 with open('C:\\Users\\484843\\Documents\\GitHub\\Qualtrics_API_Program\\copa_qualtrics_credentials.txt') as f:
     creds = json.load(f)
