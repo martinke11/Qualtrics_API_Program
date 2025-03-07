@@ -59,3 +59,6 @@ Currently this script end with optional code to export the translated version as
 #### Free Text Compliance Script: [free_text_compliance.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/free_text_compliance.py)
 Gets a count + percentage of how many respondents completed each free text question. Useful for when deciding to do any NLP analysis by understanding the sample size i.e. if only 10 or 20 (or whatever number depending on the project) responses completed a free text question its likely not worth pursuing NLP analysis. 
 
+#### [Account Management Folder](https://github.com/martinke11/Qualtrics_API_Program/tree/main/Account_Management)
+This folder holds scripts that can be used to build out other workflows in questions such as group, user, contact, and mailing list management.
+
