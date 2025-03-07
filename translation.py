@@ -3,14 +3,7 @@
 """
 Created on Fri Nov 17 12:35:12 2023
 
-@author: katherinemartin
-"""
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Thu Aug 24 13:35:53 2023
-
-@author: katherinemartin
+@author: kieranmartin
 """
 import pandas as pd
 import numpy as np
