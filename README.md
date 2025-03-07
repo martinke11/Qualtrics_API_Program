@@ -1,11 +1,11 @@
 # Qualtrics_API_Program
 Repository for managing all scripts associated with using the Qualtrics API and generating reports from it.
 
-### Managing API Credentials/Sensitive Information
+## Managing API Credentials/Sensitive Information
 - API Credentials(ClientID, Client Secret, and Data Center) must be stored locally in a plain text(.txt) file and added to git-ignore to prevent sensitive info from being shared/leaked.
 - Any other sensitive information (surey names, names, locations, etc) may not be hardcoded into scripts in Repo. They can be used when running the scripts locally but if any scripts need to be edited sensitive information must be redcted prior.
 
-### Version Control
+## Version Control
 [requirements.txt](https://github.com/martinke11/Qualtrics_API_Program/blob/main/requirements.txt) hold all of the library/package versions that the program currently runs on. To prevent bugs from version conflicts activate virtual environment to run Program:
 1) Open Anaconda Promtp and navigate to repo:<br />
 (base) C:\Your\Path>**cd C:\Your\Path\GitHub\Qualtrics_API_Program** (Replace with your file path)
@@ -19,13 +19,13 @@ Proceed ([y]/n)?**y**<br />
 (my_env) C:\Your\Path\GitHub\Qualtrics_API_Program>**conda deactivate**<br />
 (base) C:\Your\Path\Documents\GitHub\Qualtrics_API_Program>
 
-### Navigation
+## Navigation
 [QualAPI.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/QualAPI.py) is a py-module that stores all functions that need to be used for various tasks accross various scripts. This includes generating the token, pulling the list of surveys, and creating data frames required to analyze the survey responses. The final data frame is responses_df and will be used accross the script for anaylsis, where each script will make further transformations to responses_df depending on the task. There are additional functions that can be used for account management tasks to such as managing users, groups, mailing and contact lists, etc. Functions that only need to be run within 1 script(for a specific task after responses_df is loaded and cleaned) should be kept within that script. For example, the function translate_seperate_text_df in [translation.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/translation.py) is used for translation only and should be kept in the script doing the translation.
 
 import statement: <br /> import QualAPI as qa
 <br /> 
 
-#### Frequency & Count Report: [frequency_count_report.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/frequency_count_report.py)
+### Frequency & Count Report: [frequency_count_report.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/frequency_count_report.py)
 This script generates a report in word doc that includes:
 1) A table for every quantitative question with the Question answer value, the assinged question answer values code (i.e. yes = 1, no = 2, for visualization purposes in case answer options are too long and dont present well in the chart), the count, and the frequency of the answers. 
 2) Corresponding bar chart visualizations for the frequency distrobutions. Currently displays % on bars but can be updated to present count or even % and count together by updateing lines 247 - 259.
@@ -40,13 +40,13 @@ Current Version makes tables and plots of Multiple Choice Questions: Single Choi
 - Text Questions are not plotted here
 - For Slider questions that use the Star visuals, surveys should be made with the default 5 stars, currently there is no way to automatically identify how many Stars were set in the survey. If a survey has a different about of stars, line 766 (slider_range = range(1, 6)) in the handle_slider_question function in [QualAPI.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/QualAPI.py) will need to be updated manually.
 
-#### Pre & Post Survey Frequency Count Report: [pre_post_matching_and_analysis_with_same_survey.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/pre_post_matching_and_analysis_with_same_survey.py)<br>
+### Pre & Post Survey Frequency Count Report: [pre_post_matching_and_analysis_with_same_survey.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/pre_post_matching_and_analysis_with_same_survey.py)<br>
 This script does the same analysis as [frequency_count_report.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/frequency_count_report.py) but for pre and post data that was collected in the same survey with no unique ids. So the script first uses fuzzy matching to match pre and post responses, assigns a unique ID to each match, and then generates a report via word document.
 
-#### Pre & Post General Analysis: [pre_post_general_analysis.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/pre_post_general_analysis.py)
+### Pre & Post General Analysis: [pre_post_general_analysis.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/pre_post_general_analysis.py)
 This script houses buildible code for pre and post analysis where pre and post data was collected in two seperate surveys, or the same survey with pre and post data defined by a cutt-off date, or the same survey with fuzzy matching on names or other attributes to determine pre and post responses.
 
-#### Translation Script: [translation.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/translation.py)
+### Translation Script: [translation.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/translation.py)
 [Google Translate library documentation](https://libraries.io/pypi/googletrans/4.0.0rc1)
 - googletrans 4.0.0rc1 is the best *free* api tool for translating data
   
@@ -56,9 +56,9 @@ There are 2 methods for transcribing a data frame:
 
 Currently this script end with optional code to export the translated version as a csv file. However, this script can be used as a py-module to import the translated data frame into nlp_analysis.py script for further NLP analysis.
 
-#### Free Text Compliance Script: [free_text_compliance.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/free_text_compliance.py)
+### Free Text Compliance Script: [free_text_compliance.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/free_text_compliance.py)
 Gets a count + percentage of how many respondents completed each free text question. Useful for when deciding to do any NLP analysis by understanding the sample size i.e. if only 10 or 20 (or whatever number depending on the project) responses completed a free text question its likely not worth pursuing NLP analysis. 
 
-#### [Account Management Folder](https://github.com/martinke11/Qualtrics_API_Program/tree/main/Account_Management)
+### [Account Management Folder](https://github.com/martinke11/Qualtrics_API_Program/tree/main/Account_Management)
 This folder holds scripts that can be used to build out other workflows in questions such as group, user, contact, and mailing list management.
 
