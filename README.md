@@ -1,4 +1,4 @@
-# Qualtrics-API-Program
+# Qualtrics_API_Program
 Repository for managing all scripts associated with using the Qualtrics API and generating reports from it.
 
 ### Managing API Credentials/Sensitive Information
