@@ -2,7 +2,7 @@
 """
 Created on Fri Oct 25 10:17:57 2024
 
-@author: kmartin
+@author: kieranmartin
 """
 import pandas as pd
 import numpy as np
@@ -13,7 +13,7 @@ from docx.shared import Pt
 import json
 import datetime
 import os
-os.chdir('C:\\Users\\484843\\Documents\\GitHub\\Qualtrics_API_Program')
+os.chdir('/Users/kieranmartin/Documents/Qualtrics_API_Program')
 from io import BytesIO
 import QualAPI as qa
 import requests
@@ -22,7 +22,7 @@ import re
 from collections import Counter
 ###############################################################################
 # Load Qualtrics credentials from a JSON file
-with open('C:\\Users\\484843\\Documents\\GitHub\\Qualtrics_API_Program\\copa_qualtrics_credentials.txt') as f:
+with open('/Users/kieranmartin/Documents/Qualtrics_API_Program/qualtrics_credentials.txt') as f:
     creds = json.load(f)
 
 # Extract client ID, secret, and data center from credentials

@@ -14,6 +14,34 @@ import pandas as pd
 import numpy as np
 import re
 
+def convert_kwargs_to_string(**kwargs):
+    """
+    Converts the given keyword arguments into a string representation.
+
+    Args:
+        **kwargs: Arbitrary keyword arguments.
+
+    Returns:
+        str: A string representation of the keyword arguments.
+    """
+    kwargs_string = str(kwargs)
+    return kwargs_string
+
+
+def format_dict_for_json(dictionary):
+    """
+    Formats a dictionary by converting it to a JSON-like string.
+    Replaces single quotes with double quotes for proper JSON formatting.
+
+    Args:
+        dictionary (dict): A dictionary to format.
+
+    Returns:
+        str: A JSON-like formatted string with double quotes.
+    """
+    json_like_string = str(dictionary).replace("'", '"')
+    return json_like_string
+
 
 def return_kwargs_as_dict(**kwargs):
     """
@@ -185,7 +213,9 @@ def get_token(base_url, client_id, client_secret, data):
     
     return response.json()
 
-
+# ========================================================
+# Survey Handling Functions
+# ========================================================
 def get_survey_list(base_url, token):
     """
     Retrieve a complete list of surveys from the Qualtrics API, handling pagination if necessary.
@@ -270,6 +300,9 @@ def get_survey_id_by_name(survey_list_df, survey_name):
         return survey_id
 
 
+# ========================================================
+# Survey Response Handling Functions
+# ========================================================
 def export_survey_responses(base_url, access_token, survey_id):
     """
     Initiates the export of survey responses from Qualtrics.
@@ -503,6 +536,79 @@ def organize_responses(responses):
     return final_results_df
 
 
+# ========================================================
+# Survey Block and Survey Flow Handling Functions
+# ========================================================
+def get_block_data(base_url, survey_id, token):
+    """
+    Fetches survey data from the Qualtrics API, extracts block names and their associated
+    questions, and returns a DataFrame with the ordered blocks and question IDs.
+
+    Args:
+        base_url (str): The base URL for the Qualtrics API.
+        survey_id (str): The unique ID of the survey to fetch.
+        token (str): The API token for authentication.
+
+    Returns:
+        blocks_df (pd.DataFrame): A DataFrame with Block Name and Question ID columns.
+    """
+    # Make the API request to get the survey data
+    survey_url = f'{base_url}/API/v3/surveys/{survey_id}'
+    response = requests.get(survey_url, headers={"Authorization": f"Bearer {token}"})
+    
+    if response.status_code != 200:
+        raise Exception(f"Failed to fetch survey data: {response.status_code}, {response.text}")
+    
+    # Parse the JSON response
+    survey_question_dictionary = response.json()
+
+    # Extract necessary survey details
+    survey_result = survey_question_dictionary.get('result', {})
+    blocks = survey_result.get('blocks', {})
+    flow = survey_result.get('flow', [])
+
+    # Process the survey flow to get ordered blocks
+    ordered_blocks = process_survey_flow(flow, blocks)
+
+    # Convert to a DataFrame
+    blocks_df = pd.DataFrame(ordered_blocks)
+
+    return blocks_df
+
+
+def extract_block_details(block_id, blocks):
+    """
+    Extract details for a single block given its ID.
+    Returns a list of dictionaries containing block name and question IDs.
+    """
+    block_details = blocks.get(block_id, {})
+    block_name = block_details.get('description', 'No Description')
+    elements = block_details.get('elements', [])
+    question_ids = [element['questionId'] for element in elements if element['type'] == 'Question']
+
+    return [{'Block Name': block_name, 'Question ID': question_id} for question_id in question_ids]
+
+
+def process_survey_flow(flow_items, blocks):
+    """
+    Process the flow structure of the survey, handling both blocks and branches.
+    Returns a list of dictionaries with block name and question IDs in the order they appear.
+    """
+    ordered_blocks = []
+    for flow_item in flow_items:
+        if flow_item.get('type') == 'Block':  # Standard block
+            block_id = flow_item.get('id')
+            ordered_blocks.extend(extract_block_details(block_id, blocks))
+        elif flow_item.get('type') == 'Branch':  # Nested branch
+            nested_flow = flow_item.get('flow', [])
+            # Recursively process nested flow
+            ordered_blocks.extend(process_survey_flow(nested_flow, blocks))  
+    return ordered_blocks
+
+
+# ========================================================
+# Survey Questions and Question Value Handling Functions
+# ========================================================
 def get_survey_questions(base_url, token, survey_id):
     """
     Retrieve the questions from a specific survey in the Qualtrics API and clean the data by stripping HTML tags.
@@ -535,7 +641,7 @@ def get_survey_questions(base_url, token, survey_id):
     if 'result' in surveyq_dict and 'questions' in surveyq_dict['result']:
         for question_id, question_data in surveyq_dict['result']['questions'].items():
             if 'questionText' in question_data:
-                question_data['questionText'] = strip_html(question_data['questionText'])
+                question_data['questionText'] = strip_html(question_data['questionText']).strip()
             if 'choices' in question_data:
                 question_data['choices'] = strip_html(question_data['choices'])
 
@@ -619,6 +725,8 @@ def extract_column_data_types(question_dictionary, responses_df, base_url, token
             question_id_list.append(col)
             question_name_list.append(current_question.get('questionName'))
             current_type = current_question.get('questionType').get('type')
+            ## new line below
+            current_selector = current_question.get('questionType').get('selector')
             question_type_list.append(current_type)
             question_selector_list.append(current_question.get('questionType').get('selector'))
 
@@ -626,7 +734,10 @@ def extract_column_data_types(question_dictionary, responses_df, base_url, token
             is_numeric_list.append(is_numeric(current_question))
             
             # Handle different question types
-            if current_type == 'Matrix':
+            # first one is new
+            if current_type == 'TE' and current_selector == 'FORM':
+                handle_te_form_question(current_question, split_column_name, question_text_list, keep_question_list)
+            elif current_type == 'Matrix':
                 handle_matrix_question(current_question, split_column_name, question_text_list, long_text_id_list, question_value_list, answer_id_list, keep_question_list)
             elif current_type == 'CS':
                 handle_cs_question(current_question, split_column_name, question_text_list, is_numeric_list, keep_question_list)
@@ -678,6 +789,23 @@ def is_numeric(current_question):
     
     return False
 
+######## new function
+def handle_te_form_question(current_question, split_column_name, 
+                            question_text_list, keep_question_list):
+    """Handle TE questions with a FORM selector."""
+    main_question_text = current_question.get('questionText')  # e.g. 'Athlete Information'
+    choices = current_question.get('choices', {})
+    
+    # The part after QID88_ is the choice key (1, 2, 3, etc.)
+    choice_key = split_column_name[1]
+
+    # Pull the sub-field text, e.g. "First Name:", "Last Name:"
+    sub_field_text = choices.get(choice_key, {}).get('choiceText', '')
+    
+    # Combine main text and sub-field text
+    question_text_list.append(f"{main_question_text}: {sub_field_text}")
+    keep_question_list.append(True)
+######
 
 def handle_matrix_question(current_question, split_column_name, 
                            question_text_list, long_text_id_list, 
@@ -695,7 +823,10 @@ def handle_matrix_question(current_question, split_column_name,
     for choice_key, choice in choices.items():
         long_text_id_list.append(sub_question_id)  # Use sub-question ID here
         answer_id_list.append(choice.get('recode'))
-        question_value_list.append(choice.get('choiceText'))
+        # Use imageDescription if available, otherwise fallback to choiceText
+        question_value_list.append(
+            choice.get('imageDescription') or choice.get('choiceText')
+        )
 
 
 def handle_cs_question(current_question, split_column_name, question_text_list, is_numeric_list, keep_question_list):
@@ -732,7 +863,7 @@ def handle_ro_question(current_question, split_column_name, question_text_list, 
         choices = current_question.get('choices')
         
         # Retrieve sub-question text for this rank option
-        sub_question_text = choices.get(current_key).get('choiceText')
+        sub_question_text = choices.get(current_key).get('imageDescription') or choices.get(current_key).get('choiceText')
         question_text_list.append(f"{main_question_text} | {sub_question_text}")
         keep_question_list.append(True)
 
@@ -742,6 +873,7 @@ def handle_ro_question(current_question, split_column_name, question_text_list, 
             long_text_id_list.append(rank_question_id)  # Use unique rank item ID here
             answer_id_list.append(rank)
             question_value_list.append(str(rank))  # Rank values as strings (1, 2, 3, etc.)
+
 
 
 def handle_slider_question(current_question, split_column_name, question_text_list, is_numeric_list, 
@@ -831,7 +963,10 @@ def handle_default_question(current_question, split_column_name, question_text_l
                 current_choice = choices.get(choice_key)
                 long_text_id_list.append(split_column_name[0])
                 answer_id_list.append(current_choice.get('recode'))
-                question_value_list.append(current_choice.get('choiceText'))
+                # Use imageDescription if available, otherwise fallback to choiceText
+                question_value_list.append(
+                    current_choice.get('imageDescription') or current_choice.get('choiceText')
+                )
 
 
 def create_question_dataframes(question_id_list, question_name_list, question_text_list, question_type_list, question_selector_list, is_numeric_list, long_text_id_list, question_value_list, answer_id_list, keep_question_list):
@@ -949,6 +1084,49 @@ def create_data_type_dictionary(question_df, question_values_df):
     return question_df
 
 
+def reorder_question_df_with_normalized_ids(question_df, blocks_df):
+    """
+    Reorders the question_df DataFrame to match the Question ID order in blocks_df,
+    creating a separate column for normalized Question IDs.
+
+    Args:
+        question_df (pd.DataFrame): DataFrame containing question metadata.
+        blocks_df (pd.DataFrame): DataFrame with ordered Block Names and Question IDs.
+
+    Returns:
+        pd.DataFrame: A reordered question_df DataFrame.
+    """
+    # Add a separate column for normalized IDs
+    question_df['normalized_id'] = question_df['question_id'].str.extract(r'^(QID\d+)')
+    
+    # Merge blocks_df with question_df based on the normalized ID
+    merged_df = blocks_df.merge(question_df, how='left', left_on='Question ID', right_on='normalized_id')
+    
+    # Drop unnecessary columns and reorder
+    reordered_question_df = merged_df.drop(columns=['normalized_id']).reset_index(drop=True)
+
+    return reordered_question_df
+
+
+def reorder_question_df(question_df, blocks_df):
+    """
+    Reorders the question_df DataFrame to match the Question ID order in blocks_df.
+
+    Args:
+        question_df (pd.DataFrame): DataFrame containing question metadata.
+        blocks_df (pd.DataFrame): DataFrame with ordered Block Names and Question IDs.
+
+    Returns:
+        pd.DataFrame: A reordered question_df DataFrame.
+    """
+    # Filter question_df to include only Question IDs in blocks_df
+    reordered_question_df = question_df.set_index('question_id').loc[blocks_df['Question ID']].reset_index()
+
+    return reordered_question_df
+
+# ========================================================
+# Survey Response Cleaning Handling Functions
+# ========================================================
 def clean_responses(responses_df, question_df):
     """
     Extracts columns with questions from responses_df, removes rows with all NaN values 
@@ -1018,35 +1196,10 @@ def subset_by_date_range(responses_df, start_date, end_date):
     return subset_df
 
 
-def convert_kwargs_to_string(**kwargs):
-    """
-    Converts the given keyword arguments into a string representation.
-
-    Args:
-        **kwargs: Arbitrary keyword arguments.
-
-    Returns:
-        str: A string representation of the keyword arguments.
-    """
-    kwargs_string = str(kwargs)
-    return kwargs_string
-
-
-def format_dict_for_json(dictionary):
-    """
-    Formats a dictionary by converting it to a JSON-like string.
-    Replaces single quotes with double quotes for proper JSON formatting.
-
-    Args:
-        dictionary (dict): A dictionary to format.
-
-    Returns:
-        str: A JSON-like formatted string with double quotes.
-    """
-    json_like_string = str(dictionary).replace("'", '"')
-    return json_like_string
-
-
+# ========================================================
+# Qualtrics Account Management Functions
+# Users and Groups Handling Functions
+# ========================================================
 def get_users(base_url, token):
     """
     Fetches the list of users from the API.
@@ -1071,6 +1224,714 @@ def get_users(base_url, token):
     return response
 
 
+def get_user_identity(base_url, token):
+    """
+    Retrieves the identity of the current user.
+
+    Args:
+        base_url (str): Base URL for the API.
+        access_token (str): Access token for authentication.
+
+    Returns:
+        dict: User identity information.
+    """
+    identity_url = '{0}/API/v3/whoami'.format(base_url)
+    response = requests.get(identity_url,
+                            headers={"Content-Type": "application/json",
+                                     "Authorization": "Bearer " + token})
+    return response.json()
+
+
+def get_groups(base_url, token):
+    """
+    Retrieves all groups.
+
+    Args:
+        base_url (str): Base URL for the API.
+        access_token (str): Access token for authentication.
+
+    Returns:
+        dict: Group information.
+    """
+    groups_url = '{0}/API/v3/groups'.format(base_url)
+    response = requests.get(groups_url,
+                            headers={"Content-Type": "application/json",
+                                     "Authorization": "Bearer " + token})
+    return response.json()
+
+
+def get_group_details(base_url, token, group_id):
+    """
+    Retrieve details for a single group by ID.
+
+    Args:
+        base_url (str): The base URL of your Qualtrics data center.
+        token (str): OAuth2 bearer token used to authenticate.
+        group_id (str): The ID of the group (e.g., 'GR_dms1ySSxMJNZkF0').
+
+    Returns:
+        dict: A JSON response containing details of the group, including 'type'.
+    """
+    url = f"{base_url}/API/v3/groups/{group_id}"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token}"
+    }
+    response = requests.get(url, headers=headers)
+    return response.json()
+
+
+def add_user_to_group(base_url, token, group_id, user_id):
+    """
+    Adds a single user to a Qualtrics group.
+
+    Args:
+        base_url (str): Qualtrics base URL, e.g., https://{data_center}.qualtrics.com
+        token (str): OAuth2 bearer token with write:groups scope.
+        group_id (str): The Qualtrics Group ID, e.g., 'GR_9TttXzNhREpoOBE'
+        user_id (str): The single user ID to add, e.g., 'UR_9HxQQrko6McPT82'
+
+    Returns:
+        dict: JSON response from Qualtrics API, typically:
+              {
+                  "meta": {
+                      "httpStatus": "200 - OK",
+                      "requestId": "...",
+                      "notice": ""
+                  }
+              }
+    """
+    endpoint_url = f"{base_url}/API/v3/groups/{group_id}/members"
+    
+    # The body must have just "userId" per Qualtrics docs:
+    data = {
+        "userId": user_id
+    }
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token}"
+    }
+
+    response = requests.post(endpoint_url, headers=headers, json=data)
+    return response.json()
+
+
+def list_users_in_group(base_url, token, group_id, offset=0):
+    """
+    Retrieves a list of users in a specific Qualtrics group.
+
+    Args:
+        base_url (str): The base URL of your Qualtrics data center (e.g., 'https://{data_center}.qualtrics.com').
+        token (str): OAuth2 bearer token with read:groups scope.
+        group_id (str): The Qualtrics Group ID, e.g., 'GR_12345abcdef'.
+        offset (int): Pagination offset, default is 0.
+
+    Returns:
+        dict: JSON response from the Qualtrics API, including:
+              - result['elements']: List of users in the group.
+              - result['nextPage']: URL for the next page of results (if applicable).
+    """
+    endpoint_url = f"{base_url}/API/v3/groups/{group_id}/members"
+    params = {
+        "offset": offset
+    }
+    headers = {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {token}"
+    }
+
+    response = requests.get(endpoint_url, headers=headers, params=params)
+    return response.json()
+
+# ========================================================
+# Directory Handling Functions
+# ========================================================
+def list_directories(base_url, token):
+    """
+    List all XM Directories available to the authenticated user.
+
+    Args:
+        base_url (str): Qualtrics base URL (e.g., https://{data_center}.qualtrics.com).
+        token (str): OAuth2 bearer token.
+
+    Returns:
+        dict: JSON response containing a list of directories and their IDs.
+    """
+    endpoint_url = f"{base_url}/API/v3/directories"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json"
+    }
+
+    response = requests.get(endpoint_url, headers=headers)
+    return response.json()
+
+
+# ========================================================
+# Library Handling Functions
+# ========================================================
+def list_libraries(base_url, token):
+    """
+    Fetch all libraries available to the caller in Qualtrics.
+
+    Parameters:
+        base_url (str): The base URL for the Qualtrics API.
+        token (str): Bearer token for authorization.
+
+    Returns:
+        dict: Parsed JSON response from the Qualtrics API containing the list of libraries.
+
+    Raises:
+        Exception: If the API request fails.
+    """
+    endpoint_url = f"{base_url}/API/v3/libraries"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json"
+    }
+
+    try:
+        response = requests.get(endpoint_url, headers=headers)
+        response.raise_for_status()  # Raise HTTPError for bad responses
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Error fetching libraries: {e}")
+
+
+
+def list_library_messages(base_url, token, library_id, category=None, offset=0):
+    """
+    Fetch all messages from a specified library in Qualtrics.
+
+    Parameters:
+        base_url (str): The base URL for the Qualtrics API.
+        token (str): Bearer token for authorization.
+        library_id (str): The ID of the library to fetch messages from.
+        category (str, optional): The category a message belongs to (e.g., invite, thankYou).
+        offset (int, optional): The starting position for pagination. Default is 0.
+
+    Returns:
+        dict: Parsed JSON response from the Qualtrics API containing the list of messages.
+
+    Raises:
+        Exception: If the API request fails.
+    """
+    endpoint_url = f"{base_url}/API/v3/libraries/{library_id}/messages"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json"
+    }
+
+    params = {
+        "category": category,
+        "offset": offset
+    }
+
+    # Remove None values from params to avoid sending unnecessary keys
+    params = {key: value for key, value in params.items() if value is not None}
+
+    try:
+        response = requests.get(endpoint_url, headers=headers, params=params)
+        response.raise_for_status()  # Raise HTTPError for bad responses
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"Error fetching library messages: {e}")
+
+
+
+def create_library_message(base_url, token, library_id, description, category, messages):
+    """
+    Creates a new message in a specified Qualtrics library.
+
+    Args:
+        base_url (str): The base URL of your Qualtrics data center, 
+                        e.g., 'https://{data_center}.qualtrics.com'.
+        token (str): OAuth2 bearer token with the 'write:libraries' scope.
+        library_id (str): The Qualtrics Library ID (e.g., 'UR_12345abcdef').
+        description (str): Description for the new message.
+        category (str): The category for the new message. Possible values include:
+                        'invite', 'thankYou', 'reminder', 'endOfSurvey', 
+                        'inactiveSurvey', 'general', 'lookAndFeel', 'emailSubject',
+                        'smsInvite', 'smsReminder', 'smsThankYou', 'validation',
+                        'evaluatorInvite', 'evaluatorReminder', 'subjectLine'.
+        messages (dict): A dictionary of language-code keys and message text values.
+                         Example: {"en": "Example English message.", "pt-br": "Mensagem em Português."}
+
+    Returns:
+        dict: JSON response from the Qualtrics API. Example structure:
+              {
+                  "result": {
+                      "id": "string"  # The newly created message ID
+                  },
+                  "meta": {
+                      "httpStatus": "string",
+                      "requestId": "string",
+                      "notice": "string"
+                  }
+              }
+    """
+    # Construct the endpoint URL
+    endpoint_url = f"{base_url}/API/v3/libraries/{library_id}/messages"
+    
+    # Prepare the request payload
+    payload = {
+        "description": description,
+        "category": category,
+        "messages": messages
+    }
+
+    # Set the request headers, including the OAuth2 Bearer token
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token}"
+    }
+
+    # Execute the POST request
+    response = requests.post(endpoint_url, headers=headers, json=payload)
+    
+    # Return the JSON response
+    return response.json()
+
+
+def get_library_message(base_url, token, library_id, message_id):
+    """
+    Retrieves a specific message from a Qualtrics library.
+
+    Args:
+        base_url (str): The base URL of your Qualtrics data center,
+                        e.g., 'https://{data_center}.qualtrics.com'.
+        token (str): OAuth2 bearer token with the 'read:libraries' scope.
+        library_id (str): The Qualtrics Library ID (e.g., 'UR_12345abcdef').
+        message_id (str): The Qualtrics Message ID (e.g., 'MS_67890abcxyz').
+
+    Returns:
+        dict: JSON response from the Qualtrics API. Example structure:
+              {
+                  "result": {
+                      "category": "string",
+                      "description": "string",
+                      "messages": {
+                        "property1": "string",
+                        "property2": "string"
+                      }
+                  },
+                  "meta": {
+                      "httpStatus": "string",
+                      "requestId": "string",
+                      "notice": "string"
+                  }
+              }
+    """
+    # Construct the endpoint URL
+    endpoint_url = f"{base_url}/API/v3/libraries/{library_id}/messages/{message_id}"
+    
+    # Prepare the request headers, including the OAuth2 Bearer token
+    headers = {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {token}"
+    }
+
+    # Execute the GET request
+    response = requests.get(endpoint_url, headers=headers)
+    response.raise_for_status()  # (Optional) Raise HTTPError for bad responses
+    return response.json()
+
+# ========================================================
+# Mailing List Handling Functions
+# ========================================================
+def list_mailing_lists(base_url, token, directory_id, page_size=100, skip_token=None, include_count=True):
+    """
+    Retrieves a list of mailing lists in an XM Directory.
+
+    Args:
+        base_url (str): Qualtrics base URL (e.g., https://{data_center}.qualtrics.com).
+        token (str): OAuth2 bearer token with read:mailing_lists scope.
+        directory_id (str): Directory ID (POOL_...).
+        page_size (int): Maximum number of items to return per request (default 100).
+        skip_token (str): Token for pagination (default None).
+        include_count (bool): Include contact count (default False).
+
+    Returns:
+        dict: JSON response containing mailing list information.
+    """
+    endpoint_url = f"{base_url}/API/v3/directories/{directory_id}/mailinglists"
+    params = {
+        "pageSize": page_size,
+        "includeCount": include_count
+    }
+    if skip_token:
+        params["skipToken"] = skip_token
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json"
+    }
+
+    response = requests.get(endpoint_url, headers=headers, params=params)
+    return response.json()
+
+
+def update_mailing_list_owner(base_url, token, directory_id, mailing_list_id, owner_id):
+    """
+    Updates the owner of a mailing list to share it with a group.
+
+    Args:
+        base_url (str): Qualtrics base URL.
+        token (str): OAuth2 bearer token with `write:mailing_lists` scope.
+        directory_id (str): Directory ID (POOL_...).
+        mailing_list_id (str): Mailing List ID (CG_...).
+        owner_id (str): Group ID to set as the owner.
+
+    Returns:
+        dict: JSON response from the API.
+    """
+    endpoint_url = f"{base_url}/API/v3/directories/{directory_id}/mailinglists/{mailing_list_id}"
+    data = {
+        "ownerId": owner_id
+    }
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.put(endpoint_url, headers=headers, json=data)
+    return response.json()
+
+
+def create_mailing_list(base_url, token, directory_id, name, owner_id=None, prioritize_metadata=False):
+    """
+    Creates a new mailing list in an XM Directory.
+
+    Args:
+        base_url (str): Qualtrics base URL (e.g., https://{data_center}.qualtrics.com).
+        token (str): OAuth2 bearer token with write:mailing_lists scope.
+        directory_id (str): Directory ID (POOL_...).
+        name (str): Name of the mailing list.
+        owner_id (str): Owner of the mailing list (default None).
+        prioritize_metadata (bool): Prioritize list metadata over contact metadata (default False).
+
+    Returns:
+        dict: JSON response with the newly created mailing list's ID.
+    """
+    endpoint_url = f"{base_url}/API/v3/directories/{directory_id}/mailinglists"
+    data = {
+        "name": name,
+        "prioritizeListMetadata": prioritize_metadata
+    }
+    if owner_id:
+        data["ownerId"] = owner_id
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(endpoint_url, headers=headers, json=data)
+    return response.json()
+
+
+def get_mailing_list(base_url, token, directory_id, mailing_list_id, include_count=True):
+    """
+    Retrieves details of a specific mailing list.
+
+    Args:
+        base_url (str): Qualtrics base URL (e.g., https://{data_center}.qualtrics.com).
+        token (str): OAuth2 bearer token with read:mailing_lists scope.
+        directory_id (str): Directory ID (POOL_...).
+        mailing_list_id (str): Mailing list ID (CG_...).
+        include_count (bool): Include contact count (default False).
+
+    Returns:
+        dict: JSON response containing mailing list details.
+    """
+    endpoint_url = f"{base_url}/API/v3/directories/{directory_id}/mailinglists/{mailing_list_id}"
+    params = {
+        "includeCount": include_count
+    }
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json"
+    }
+
+    response = requests.get(endpoint_url, headers=headers, params=params)
+    return response.json()
+
+
+def update_mailing_list(base_url, token, directory_id, mailing_list_id, name, owner_id=None):
+    """
+    Updates a mailing list's name or owner.
+
+    Args:
+        base_url (str): Qualtrics base URL (e.g., https://{data_center}.qualtrics.com).
+        token (str): OAuth2 bearer token with write:mailing_lists scope.
+        directory_id (str): Directory ID (POOL_...).
+        mailing_list_id (str): Mailing list ID (CG_...).
+        name (str): New name for the mailing list.
+        owner_id (str): New owner of the mailing list (default None).
+
+    Returns:
+        dict: JSON response from the API.
+    """
+    endpoint_url = f"{base_url}/API/v3/directories/{directory_id}/mailinglists/{mailing_list_id}"
+    data = {
+        "name": name
+    }
+    if owner_id:
+        data["ownerId"] = owner_id
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.put(endpoint_url, headers=headers, json=data)
+    return response.json()
+
+
+def delete_mailing_list(base_url, token, directory_id, mailing_list_id):
+    """
+    Deletes a mailing list from an XM Directory.
+
+    Args:
+        base_url (str): Qualtrics base URL (e.g., https://{data_center}.qualtrics.com).
+        token (str): OAuth2 bearer token with write:mailing_lists scope.
+        directory_id (str): Directory ID (POOL_...).
+        mailing_list_id (str): Mailing list ID (CG_...).
+
+    Returns:
+        dict: JSON response from the API.
+    """
+    endpoint_url = f"{base_url}/API/v3/directories/{directory_id}/mailinglists/{mailing_list_id}"
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json"
+    }
+
+    response = requests.delete(endpoint_url, headers=headers)
+    return response.json()
+
+
+# ========================================================
+# Contact List WITHIN Mailing List Handling Functions
+# ========================================================
+def list_contacts_in_mailing_list(base_url, token, directory_id, mailing_list_id, page_size=50, skip_token=None, include_embedded=False):
+    """
+    Retrieves a list of contacts in a specified mailing list.
+
+    Args:
+        base_url (str): Qualtrics base URL.
+        token (str): OAuth2 bearer token with `read:mailing_list_contacts` scope.
+        directory_id (str): Directory ID (POOL_...).
+        mailing_list_id (str): Mailing List ID (CG_...).
+        page_size (int): Number of contacts to retrieve per page (default: 50).
+        skip_token (str): Token for pagination (default: None).
+        include_embedded (bool): Include embedded data in the response.
+
+    Returns:
+        dict: JSON response containing contacts and pagination info.
+    """
+    endpoint_url = f"{base_url}/API/v3/directories/{directory_id}/mailinglists/{mailing_list_id}/contacts"
+    params = {
+        "pageSize": page_size,
+        "includeEmbedded": 'true' if include_embedded else 'false'
+    }
+    if skip_token:
+        params["skipToken"] = skip_token
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json"
+    }
+
+    response = requests.get(endpoint_url, headers=headers, params=params)
+    return response.json()
+
+
+def create_contact_in_mailing_list(base_url, token, directory_id, mailing_list_id, first_name, last_name, email, phone=None, ext_ref=None, embedded_data=None, private_embedded_data=None, language=None, unsubscribed=False):
+    """
+    Creates a contact in a specified mailing list.
+
+    Args:
+        base_url (str): Qualtrics base URL.
+        token (str): OAuth2 bearer token with `write:mailing_list_contacts` scope.
+        directory_id (str): Directory ID (POOL_...).
+        mailing_list_id (str): Mailing List ID (CG_...).
+        first_name (str): Contact's first name.
+        last_name (str): Contact's last name.
+        email (str): Contact's email.
+        phone (str): Contact's phone number (optional).
+        ext_ref (str): External reference for the contact (optional).
+        embedded_data (dict): Additional metadata for the contact (optional).
+        private_embedded_data (dict): Private metadata for the contact (optional).
+        language (str): Language code for the contact (optional).
+        unsubscribed (bool): Contact's subscription status (default: False).
+
+    Returns:
+        dict: JSON response containing the created contact's ID.
+    """
+    endpoint_url = f"{base_url}/API/v3/directories/{directory_id}/mailinglists/{mailing_list_id}/contacts"
+    data = {
+        "firstName": first_name,
+        "lastName": last_name,
+        "email": email,
+        "phone": phone,
+        "extRef": ext_ref,
+        "embeddedData": embedded_data,
+        "privateEmbeddedData": private_embedded_data,
+        "language": language,
+        "unsubscribed": unsubscribed
+    }
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(endpoint_url, headers=headers, json={k: v for k, v in data.items() if v is not None})
+    return response.json()
+
+
+def list_bounced_mailing_list_contacts(base_url, token, directory_id, mailing_list_id, page_size=50, skip_token=None, since=None):
+    """
+    Retrieves a list of bounced contacts in a specified mailing list.
+
+    Args:
+        base_url (str): Qualtrics base URL.
+        token (str): OAuth2 bearer token with `read:mailing_list_contacts` scope.
+        directory_id (str): Directory ID (POOL_...).
+        mailing_list_id (str): Mailing List ID (CG_...).
+        page_size (int): Number of contacts to retrieve per page (default: 50).
+        skip_token (str): Token for pagination (default: None).
+        since (str): Date-time string to filter bounced contacts (optional).
+
+    Returns:
+        dict: JSON response containing bounced contacts.
+    """
+    endpoint_url = f"{base_url}/API/v3/directories/{directory_id}/mailinglists/{mailing_list_id}/bouncedContacts"
+    params = {
+        "pageSize": page_size,
+        "skipToken": skip_token,
+        "since": since
+    }
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json"
+    }
+
+    response = requests.get(endpoint_url, headers=headers, params={k: v for k, v in params.items() if v is not None})
+    return response.json()
+
+
+def list_opted_out_mailing_list_contacts(base_url, token, directory_id, mailing_list_id, page_size=50, skip_token=None, since=None):
+    """
+    Retrieves a list of opted-out contacts in a specified mailing list.
+
+    Args:
+        base_url (str): Qualtrics base URL.
+        token (str): OAuth2 bearer token with `read:mailing_list_contacts` scope.
+        directory_id (str): Directory ID (POOL_...).
+        mailing_list_id (str): Mailing List ID (CG_...).
+        page_size (int): Number of contacts to retrieve per page (default: 50).
+        skip_token (str): Token for pagination (default: None).
+        since (str): Date-time string to filter opted-out contacts (optional).
+
+    Returns:
+        dict: JSON response containing opted-out contacts.
+    """
+    endpoint_url = f"{base_url}/API/v3/directories/{directory_id}/mailinglists/{mailing_list_id}/optedOutContacts"
+    params = {
+        "pageSize": page_size,
+        "skipToken": skip_token,
+        "since": since
+    }
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json"
+    }
+
+    response = requests.get(endpoint_url, headers=headers, params={k: v for k, v in params.items() if v is not None})
+    return response.json()
+
+
+def get_mailing_list_contact(base_url, token, directory_id, mailing_list_id, contact_id):
+    """
+    Retrieves a specific contact in a mailing list.
+
+    Args:
+        base_url (str): Qualtrics base URL.
+        token (str): OAuth2 bearer token with `read:mailing_list_contacts` scope.
+        directory_id (str): Directory ID (POOL_...).
+        mailing_list_id (str): Mailing List ID (CG_...).
+        contact_id (str): Contact ID (CID_...).
+
+    Returns:
+        dict: JSON response containing contact details.
+    """
+    endpoint_url = f"{base_url}/API/v3/directories/{directory_id}/mailinglists/{mailing_list_id}/contacts/{contact_id}"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json"
+    }
+
+    response = requests.get(endpoint_url, headers=headers)
+    return response.json()
+
+
+def update_mailing_list_contact(base_url, token, directory_id, mailing_list_id, contact_id, **kwargs):
+    """
+    Updates a contact in a mailing list.
+
+    Args:
+        base_url (str): Qualtrics base URL.
+        token (str): OAuth2 bearer token with `write:mailing_list_contacts` scope.
+        directory_id (str): Directory ID (POOL_...).
+        mailing_list_id (str): Mailing List ID (CG_...).
+        contact_id (str): Contact ID (CID_...).
+        kwargs: Attributes to update (e.g., firstName, lastName, email, etc.).
+
+    Returns:
+        dict: JSON response containing the update status.
+    """
+    endpoint_url = f"{base_url}/API/v3/directories/{directory_id}/mailinglists/{mailing_list_id}/contacts/{contact_id}"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.put(endpoint_url, headers=headers, json={k: v for k, v in kwargs.items() if v is not None})
+    return response.json()
+
+
+def delete_contact_from_mailing_list(base_url, token, directory_id, mailing_list_id, contact_id):
+    """
+    Deletes a single contact from a specified mailing list.
+
+    Args:
+        base_url (str): Qualtrics base URL (e.g., https://{data_center}.qualtrics.com).
+        token (str): OAuth2 bearer token with `write:mailing_list_contacts` scope.
+        directory_id (str): Directory ID (POOL_...).
+        mailing_list_id (str): Mailing List ID (CG_...).
+        contact_id (str): Contact ID (CID_...).
+
+    Returns:
+        dict: JSON response containing the status of the deletion.
+    """
+    endpoint_url = f"{base_url}/API/v3/directories/{directory_id}/mailinglists/{mailing_list_id}/contacts/{contact_id}"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/json"
+    }
+
+    response = requests.delete(endpoint_url, headers=headers)
+    return response.json()
+
+
+# ========================================================
+# Survey Editing Handling Functions
+# ========================================================
 def get_survey_meta(base_url, token, survey_id):
     """
     Fetches the metadata for a given survey from the API.
@@ -1096,7 +1957,7 @@ def get_survey_meta(base_url, token, survey_id):
     return response
 
 
-def change_survey_metadata(base_url, access_token, survey_id, metadata):
+def change_survey_metadata(base_url, token, survey_id, metadata):
     """
     Updates a survey's metadata.
 
@@ -1112,12 +1973,12 @@ def change_survey_metadata(base_url, access_token, survey_id, metadata):
     survey_metadata_url = '{0}/API/v3/survey-definitions/{1}/metadata'.format(base_url, survey_id)
     response = requests.put(survey_metadata_url,
                             headers={"Content-Type": "application/json",
-                                     "Authorization": "Bearer " + access_token},
+                                     "Authorization": "Bearer " + token},
                             data=metadata)
     return response.json()
 
 
-def update_survey(base_url, access_token, survey_id, data):
+def update_survey(base_url, token, survey_id, data):
     """
     Updates a survey's details.
 
@@ -1133,12 +1994,12 @@ def update_survey(base_url, access_token, survey_id, data):
     survey_update_url = '{0}/API/v3/surveys/{1}'.format(base_url, survey_id)
     response = requests.put(survey_update_url,
                             headers={"Content-Type": "application/json",
-                                     "Authorization": "Bearer " + access_token},
+                                     "Authorization": "Bearer " + token},
                             data=data)
     return response.json()
 
 
-def get_full_survey_info(base_url, access_token, survey_id):
+def get_full_survey_info(base_url, token, survey_id):
     """
     Retrieves full survey information, pulling more detailed info.
 
@@ -1153,29 +2014,11 @@ def get_full_survey_info(base_url, access_token, survey_id):
     full_survey_info_url = '{0}/API/v3/survey-definitions/{1}'.format(base_url, survey_id)
     response = requests.get(full_survey_info_url,
                             headers={"Content-Type": "application/json",
-                                     "Authorization": "Bearer " + access_token})
+                                     "Authorization": "Bearer " + token})
     return response.json()
 
 
-def get_groups(base_url, access_token):
-    """
-    Retrieves all groups.
-
-    Args:
-        base_url (str): Base URL for the API.
-        access_token (str): Access token for authentication.
-
-    Returns:
-        dict: Group information.
-    """
-    groups_url = '{0}/API/v3/groups'.format(base_url)
-    response = requests.get(groups_url,
-                            headers={"Content-Type": "application/json",
-                                     "Authorization": "Bearer " + access_token})
-    return response.json()
-
-
-def share_survey(base_url, access_token, survey_id, data):
+def share_survey(base_url, token, survey_id, data):
     """
     Shares a survey with a group or person.
 
@@ -1191,27 +2034,12 @@ def share_survey(base_url, access_token, survey_id, data):
     share_survey_url = '{0}/API/v3/surveys/{1}/permissions/collaborations'.format(base_url, survey_id)
     response = requests.post(share_survey_url,
                              headers={"Content-Type": "application/json",
-                                      "Authorization": "Bearer " + access_token},
+                                      "Authorization": "Bearer " + token},
                              data=data)
     return response.json()
 
 
-def get_user_identity(base_url, access_token):
-    """
-    Retrieves the identity of the current user.
 
-    Args:
-        base_url (str): Base URL for the API.
-        access_token (str): Access token for authentication.
-
-    Returns:
-        dict: User identity information.
-    """
-    identity_url = '{0}/API/v3/whoami'.format(base_url)
-    response = requests.get(identity_url,
-                            headers={"Content-Type": "application/json",
-                                     "Authorization": "Bearer " + access_token})
-    return response.json()
 
 
 # yul1.qualtrics.com/API/v3/surveys/{survey_id}/permissions/collaborations

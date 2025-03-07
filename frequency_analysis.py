@@ -1,8 +1,9 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Oct 25 10:37:04 2024
+Created on Thu Aug 24 13:35:53 2023
 
-@author: 484843
+@author: kieranmartin
 """
 import pandas as pd
 import numpy as np
@@ -13,7 +14,7 @@ from docx.shared import Pt
 import json
 import datetime
 import os
-os.chdir('C:\\Users\\484843\\Documents\\GitHub\\Qualtrics_API_Program')
+os.chdir('/Users/kieranmartin/Documents/Qualtrics_API_Program')
 from io import BytesIO
 import QualAPI as qa
 import requests
@@ -22,7 +23,7 @@ import re
 from collections import Counter
 ###############################################################################
 # Load Qualtrics credentials from a JSON file
-with open('C:\\Users\\484843\\Documents\\GitHub\\Qualtrics_API_Program\\copa_qualtrics_credentials.txt') as f:
+with open('/Users/kieranmartin/Documents/Qualtrics_API_Program/qualtrics_credentials.txt') as f:
     creds = json.load(f)
 
 # Extract client ID, secret, and data center from credentials
@@ -32,7 +33,8 @@ data_center = creds.get('DataCenter')
 base_url = f'https://{data_center}.qualtrics.com'
 
 # Define survey name and set up parameters for token request
-survey_name = "Test Survey"
+survey_name = "Lifestyle Survey -Fitness Programming (Adult)"
+#survey_name = "High 5 for Fitness Phase II- Teacher Survey"
 grant_type = 'client_credentials'
 scope = 'read:surveys read:survey_responses'
 data = qa.return_kwargs_as_dict(grant_type=grant_type, scope=scope)
@@ -57,15 +59,24 @@ survey_responses = qa.get_survey_responses(base_url, token, survey_id, file_id)
 responses_df = qa.extract_and_organize_responses(survey_responses)
 responses_df = qa.filter_preview_responses(responses_df)
 
+# get survey question block info to order plots in order of questions in survey
+# despite different data type handling
+blocks_df = qa.get_block_data(base_url, survey_id, token)
+
 # Retrieve survey questions and map them to response columns
 survey_questions = qa.get_survey_questions(base_url, token, survey_id).get('result').get('questions')
 question_df, question_values_df = qa.extract_column_data_types(survey_questions, responses_df, base_url, token, survey_id)
 question_df = qa.create_data_type_dictionary(question_df, question_values_df)
 
+
+question_df = qa.reorder_question_df_with_normalized_ids(question_df, blocks_df)
+#question_df = qa.reorder_question_df(question_df, blocks_df)
+question_df = question_df.dropna()
+
+
 question_values_df['question_value'] = question_values_df['question_value'].astype(str)
 question_values_df['answer_id'] = question_values_df['answer_id'].astype(str)
 question_values_df['question_id'] = question_values_df['question_id'].astype(str)
-
 
 # Clean responses and retain only question columns
 responses_df = qa.clean_responses(responses_df, question_df)
@@ -75,8 +86,21 @@ df = responses_df.loc[:, question_df['question_id'].tolist()]
 nan_mask = df.isna()
 keep_mask = np.array(nan_mask.sum(axis=1) < len(df.columns))
 df = df.loc[keep_mask].reset_index(drop=True)
-    
+
+# Filter question_df for FreeText columns and exclude those containing 'TEXT_'
+free_text_columns = question_df[question_df.data_type == 'FreeText']
+
+# Map question_id to question_text
+question_id_to_text = free_text_columns.set_index('question_id')['question_text']
+
+# Create text_df using question_id, then rename columns to question_text
+text_df = df[question_id_to_text.index]
+text_df.columns = text_df.columns.map(question_id_to_text)
+
 ###############################################################################
+# rest of code is for frequency analysis and report:
+# use line below to filter responses_df by specific dates if needed:
+# responses_df = qa.subset_by_date_range(responses_df, '2024-06-27', '2024-07-08')
 def process_response_column(responses_df, column):
     """
     Cleans and processes a multiple-choice or rank order response column by checking types 
@@ -138,89 +162,132 @@ def process_multiple_choice_question(responses_df, col, question_values_df):
 
 def process_numeric_question(responses_df, col, question_values_df):
     """
-    Processes a numeric question to generate a frequency table.
+    Processes a numeric question to generate a frequency table
+    with columns: ['Value', 'Count', 'Frequency'].
+    
+    Because question_values_df does not contain values for numeric questions,
+    we skip merging.
     """
-    new_list = process_response_column(responses_df, col)
+    new_list = process_response_column(responses_df, col)  # returns list of strings
     freq_dist = Counter(new_list)
     freq_df = pd.DataFrame.from_dict(freq_dist, orient='index').reset_index()
-    freq_df.columns = ['answer_id', 'N']
-    
-    current_values = question_values_df[question_values_df['question_id'] == col][['answer_id', 'question_value']]
-    temp_df = pd.merge(current_values, freq_df, on='answer_id', how='outer').fillna({'N': 0, 'question_value': ''})
-    temp_df['N'] = temp_df['N'].astype(int)
-    temp_df['Pct'] = (temp_df['N'] / len(responses_df) * 100).round(1).astype(str) + '%'
-    temp_df.columns = ['Value', 'Value_Label', 'Count', 'Frequency']
-    
-    # Drop the 'Value_Label' (formerly 'Code') column
-    temp_df = temp_df[['Value', 'Count', 'Frequency']]
-    
-    return temp_df
+    freq_df.columns = ['Value', 'Count']
+
+    # Calculate frequencies as percentages
+    total_responses = len(responses_df)
+    freq_df['Frequency'] = (freq_df['Count'] / total_responses * 100).round(1).astype(str) + '%'
+
+    # Simply return freq_df, no merge required
+    # with question_values_df since it's empty for numeric responses
+    return freq_df[['Value', 'Count', 'Frequency']]
 
 
-def generate_response_frequency(responses_df, question_df, question_values_df):
+regional_questions = [
+    'Please select your SOAF Program: ',
+    'Please select your SOAP Program: ',
+    'Please select your SOEA Program:',
+    'Please select your SOEE Program:',
+    'Please select your SOLA Program:',
+    'Please select your MENA Program:',
+    'Please select your SONA Program:'
+]
+
+def generate_response_frequency(responses_df, question_df, question_values_df, regional_questions):
     """
-    Generates frequency tables and plots for multiple-choice and numeric-choice questions without regional question filtering,
+    Generates frequency tables and plots for multiple-choice and numeric-choice questions with regional question filtering,
     and saves them to a Word document.
     
     Parameters:
     responses_df (pd.DataFrame): Survey responses DataFrame.
-    question_df (pd.DataFrame): DataFrame with question details, including 'question_id' and 'data_type'.
+    question_df (pd.DataFrame): DataFrame with question details, including columns such as 'question_id', 'data_type',
+                                'question_text', 'question_name', 'Block Name', and 'question_type'.
     question_values_df (pd.DataFrame): DataFrame with answer IDs and question values.
+    regional_questions (list): List of question texts that need regional filtering.
     
     Returns:
-    Document: A Word document with tables and bar charts for each question.
+    Document: A Word document with tables and bar charts for each applicable question.
     """
-    result_dict = {}
-    numeric_result_dict = {}
-    multiple_choice_columns = list(question_df.question_id[question_df["data_type"] == 'MultipleChoice'])
-    numeric_choice_columns = list(question_df.question_id[question_df["data_type"] == 'Numeric'])
-    
-    # Process multiple-choice questions
-    for col in multiple_choice_columns:
-        result_dict[col] = process_multiple_choice_question(responses_df, col, question_values_df)
-    
-    # Process numeric questions
-    for col in numeric_choice_columns:
-        numeric_result_dict[col] = process_numeric_question(responses_df, col, question_values_df)
-    
-    # Document setup
+    from docx import Document
+    from docx.shared import Inches
+    import pandas as pd
+
+    # Create a new Word document
+    doc = Document()
+
+    # Survey metadata
     N = len(responses_df)
     number_of_responses_text = f"N = {N} responses"
-    doc = Document()
-    
-    # Add the number of responses to the document
-    doc.add_paragraph("Survey Name", style='Normal')  # Replace with actual survey name if available
+    total_questions = len(question_df)
+    question_types = question_df['question_type'].unique()
+
+    # Convert `endDate` to datetime and determine first/last response dates and survey duration
+    responses_df['endDate'] = pd.to_datetime(responses_df['endDate'], format='%Y-%m-%dT%H:%M:%SZ')
+    first_response_date = responses_df['endDate'].min().strftime('%Y-%m-%d')
+    latest_response_date = responses_df['endDate'].max().strftime('%Y-%m-%d')
+    survey_duration = (responses_df['endDate'].max() - responses_df['endDate'].min()).days
+
+    # Add survey information to the document (survey_name should be defined elsewhere)
+    doc.add_paragraph(survey_name, style='Normal')
     doc.add_paragraph(number_of_responses_text, style='Normal')
-    
+    doc.add_paragraph(
+        f"Date of first survey response: {first_response_date}, "
+        f"Date of most recently submitted survey response: {latest_response_date}",
+        style='Normal'
+    )
+    doc.add_paragraph(f"Survey duration: {survey_duration} days", style='Normal')
+    doc.add_paragraph(f"Number of questions: {total_questions}", style='Normal')
+    doc.add_paragraph(f"Question types: {', '.join(question_types)}", style='Normal')
+    doc.add_page_break()
+
     # Set custom margins
     section = doc.sections[0]
     section.top_margin = section.bottom_margin = section.left_margin = section.right_margin = Inches(1)
-    
-    # Add tables and charts for multiple-choice questions
-    for original_column, result_df in result_dict.items():
-        qname = question_df.loc[question_df['question_id'] == original_column, 'question_name'].values[0]
-        qtext = question_df.loc[question_df['question_id'] == original_column, 'question_text'].values[0]
+
+    # Iterate over question_df in its index order.
+    # Process only questions with data types MultipleChoice or Numeric (ignoring FreeText questions).
+    current_block = None
+    for _, row in question_df.iterrows():
+        if row['data_type'] not in ['MultipleChoice', 'Numeric']:
+            continue  # Skip FreeText or other non-plottable question types
+
+        # Group questions by block. When the block changes, add a new heading.
+        block_name = row['Block Name']
+        if block_name != current_block:
+            doc.add_heading(block_name, level=1)
+            current_block = block_name
+
+        qid = row['question_id']
+        qtext = row['question_text']
+        qname = row['question_name']
+
+        # Process the question based on its type.
+        if row['data_type'] == 'MultipleChoice':
+            result_df = process_multiple_choice_question(responses_df, qid, question_values_df)
+        elif row['data_type'] == 'Numeric':
+            result_df = process_numeric_question(responses_df, qid, question_values_df)
+
+        # If this question requires regional filtering, remove zero-count responses.
+        if qtext in regional_questions:
+            result_df = result_df[result_df['Count'] != 0]
+
+        # Add a heading for the question and insert its table/chart.
         mapped_text = f"{qname}: {qtext}"
-        
         doc.add_heading(mapped_text, level=1)
-        add_table_and_chart_to_doc(doc, result_df)
-    
-    # Add tables and charts for numeric-choice questions
-    for original_column, result_df in numeric_result_dict.items():
-        qname = question_df.loc[question_df['question_id'] == original_column, 'question_name'].values[0]
-        qtext = question_df.loc[question_df['question_id'] == original_column, 'question_text'].values[0]
-        mapped_text = f"{qname}: {qtext}"
-        
-        doc.add_heading(mapped_text, level=1)
-        add_table_and_chart_to_doc(doc, result_df, is_numeric=True)
-    
+        add_table_and_chart_to_doc(doc, result_df, is_numeric=(row['data_type'] == 'Numeric'))
+
     return doc
+
 
 
 def add_table_and_chart_to_doc(doc, result_df, is_numeric=False):
     """
     Adds a frequency table and bar chart to the document for each question.
     For numeric questions, the chart and table use 'Value' instead of 'Code'.
+    
+    Parameters:
+    doc (Document): The Word document being generated.
+    result_df (pd.DataFrame): DataFrame containing the frequency table for the question.
+    is_numeric (bool): Whether the question is numeric or multiple-choice.
     """
     # Determine column labels based on whether the question is numeric or multiple-choice
     code_column = 'Value' if is_numeric else 'Code'
@@ -258,6 +325,7 @@ def add_table_and_chart_to_doc(doc, result_df, is_numeric=False):
         for p, freq in zip(ax.patches, display_df['Frequency']):
             ax.annotate(f'{freq}', (p.get_x() + p.get_width() / 2, p.get_height() + 3), ha='center', fontsize=10)
 
+        # Save chart as an image in memory and add to the document
         image_stream = BytesIO()
         plt.savefig(image_stream, format='png')
         plt.close(fig)
@@ -265,10 +333,12 @@ def add_table_and_chart_to_doc(doc, result_df, is_numeric=False):
         doc.add_picture(image_stream, width=Inches(7), height=Inches(4.5))
     
     doc.add_page_break()
-
+    
     return doc
 
+# Add regional_questions parameter when calling the function
+doc = generate_response_frequency(responses_df, question_df, question_values_df, regional_questions)
+doc.save('/Users/kieranmartin/Documents/Qualtrics_API_Program/test_again20.docx')
 
-doc = generate_response_frequency(responses_df, question_df, question_values_df)
-doc.save('C:\\Users\\484843\\Documents\\GitHub\\Qualtrics_API_Program\\Reports\\test_final3.docx')
+
 

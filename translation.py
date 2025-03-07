@@ -17,7 +17,7 @@ import numpy as np
 import json
 import datetime
 import os
-os.chdir('C:\\Users\\484843\\Documents\\GitHub\\Qualtrics_API_Program')
+os.chdir('/Users/kieranmartin/Documents/Qualtrics_API_Program')
 import QualAPI as qa
 import requests
 import re
@@ -37,7 +37,7 @@ warnings.simplefilter(action='ignore', category=pd.errors.DtypeWarning)
 pd.options.mode.chained_assignment = None 
 
 # Load Qualtrics credentials from a JSON file
-with open('C:\\Users\\484843\\Documents\\GitHub\\Qualtrics_API_Program\\copa_qualtrics_credentials.txt') as f:
+with open('/Users/kieranmartin/Documents/Qualtrics_API_Program/qualtrics_credentials.txt') as f:
     creds = json.load(f)
 
 # Extract client ID, secret, and data center from credentials
