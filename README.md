@@ -8,7 +8,7 @@ Repository for managing all scripts associated with using the Qualtrics API and 
 ### Version Control
 [requirements.txt](https://github.com/martinke11/Qualtrics_API_Program/blob/main/requirements.txt) hold all of the library/package versions that the program currently runs on. To prevent bugs from version conflicts activate virtual environment to run Program:
 1) Open Anaconda Promtp and navigate to repo:<br />
-(base) C:\Your\Path>**cd C:\Your\Path\GitHub\Qualtrics-API-Program** (Replace with your file path)
+(base) C:\Your\Path>**cd C:\Your\Path\GitHub\Qualtrics_API_Program** (Replace with your file path)
 3) Activate correct python version:<br /> 
 (base) C:\Your\Path\\GitHub\Qualtrics_API_Program>**conda create --name my_env python=3.12**<br />
 Proceed ([y]/n)?**y**<br />
@@ -20,7 +20,7 @@ Proceed ([y]/n)?**y**<br />
 (base) C:\Your\Path\Documents\GitHub\Qualtrics_API_Program>
 
 ### Navigation
-[QualAPI.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/QualAPI.py) is a py-module that stores all functions that need to be used for various tasks accross various scripts. This includes generating the token, pulling the list of surveys, and creating data frames required to analyze the survey responses. The final data frame is responses_df and will be used accross the script for anaylsis, where each script will make further transformations to responses_df depending on the task. Functions that only need to be run within 1 script(for a specific task after responses_df is loaded and cleaned) should be kept within that script. For example, the function translate_seperate_text_df in [translation.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/translation.py) is used for translation only and should be kept in the script doing the translation.
+[QualAPI.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/QualAPI.py) is a py-module that stores all functions that need to be used for various tasks accross various scripts. This includes generating the token, pulling the list of surveys, and creating data frames required to analyze the survey responses. The final data frame is responses_df and will be used accross the script for anaylsis, where each script will make further transformations to responses_df depending on the task. There are additional functions that can be used for account management tasks to such as managing users, groups, mailing and contact lists, etc. Functions that only need to be run within 1 script(for a specific task after responses_df is loaded and cleaned) should be kept within that script. For example, the function translate_seperate_text_df in [translation.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/translation.py) is used for translation only and should be kept in the script doing the translation.
 
 import statement: <br /> import QualAPI as qa
 <br /> 
