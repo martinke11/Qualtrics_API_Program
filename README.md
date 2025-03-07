@@ -1,4 +1,3 @@
-# Qualtrics_API_Program
 # Qualtrics-API-Program
 Repository for managing all scripts associated with using the Qualtrics API and generating reports from it.
 
@@ -26,7 +25,7 @@ Proceed ([y]/n)?**y**<br />
 import statement: <br /> import QualAPI as qa
 <br /> 
 
-#### Frequency & Count Report: [frequency_count_report.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/frequency_analysis.py)
+#### Frequency & Count Report: [frequency_count_report.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/frequency_count_report.py)
 This script generates a report in word doc that includes:
 1) A table for every quantitative question with the Question answer value, the assinged question answer values code (i.e. yes = 1, no = 2, for visualization purposes in case answer options are too long and dont present well in the chart), the count, and the frequency of the answers. 
 2) Corresponding bar chart visualizations for the frequency distrobutions. Currently displays % on bars but can be updated to present count or even % and count together by updateing lines 247 - 259.
@@ -41,9 +40,11 @@ Current Version makes tables and plots of Multiple Choice Questions: Single Choi
 - Text Questions are not plotted here
 - For Slider questions that use the Star visuals, surveys should be made with the default 5 stars, currently there is no way to automatically identify how many Stars were set in the survey. If a survey has a different about of stars, line 766 (slider_range = range(1, 6)) in the handle_slider_question function in [QualAPI.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/QualAPI.py) will need to be updated manually.
 
-#### Pre & Post Survey Frequency Count Report: [pre_post_matching_and_analysis_with_same_survey](https://github.com/martinke11/Qualtrics_API_Program/blob/main/pre_post_matching_and_analysis_with_same_survey.py)
-This scrpt does the same analysis as [frequency_count_report.py](https://github.com/chicagocopa/Qualtrics-API-Program/blob/main/frequency_count_report.py)
+#### Pre & Post Survey Frequency Count Report: [pre_post_matching_and_analysis_with_same_survey.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/pre_post_matching_and_analysis_with_same_survey.py)<br>
+This script does the same analysis as [frequency_count_report.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/frequency_count_report.py) but for pre and post data that was collected in the same survey with no unique ids. So the script first uses fuzzy matching to match pre and post responses, assigns a unique ID to each match, and then generates a report via word document.
 
+#### Pre & Post General Analysis: [pre_post_general_analysis.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/pre_post_general_analysis.py)
+This script houses buildible code for pre and post analysis where pre and post data was collected in two seperate surveys, or the same survey with pre and post data defined by a cutt-off date, or the same survey with fuzzy matching on names or other attributes to determine pre and post responses.
 
 #### Translation Script: [translation.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/translation.py)
 [Google Translate library documentation](https://libraries.io/pypi/googletrans/4.0.0rc1)
@@ -55,6 +56,6 @@ There are 2 methods for transcribing a data frame:
 
 Currently this script end with optional code to export the translated version as a csv file. However, this script can be used as a py-module to import the translated data frame into nlp_analysis.py script for further NLP analysis.
 
-#### Free Text Compliance Script: [free_text_compliance.py](https://github.com/chicagocopa/Qualtrics-API-Program/blob/main/free_text_compliance.py)
+#### Free Text Compliance Script: [free_text_compliance.py](https://github.com/martinke11/Qualtrics_API_Program/blob/main/free_text_compliance.py)
 Gets a count + percentage of how many respondents completed each free text question. Useful for when deciding to do any NLP analysis by understanding the sample size i.e. if only 10 or 20 (or whatever number depending on the project) responses completed a free text question its likely not worth pursuing NLP analysis. 
 
