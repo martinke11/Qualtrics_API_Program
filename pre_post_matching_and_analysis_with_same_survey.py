@@ -19,7 +19,6 @@ import re
 from unidecode import unidecode
 import os
 from io import BytesIO
-import QualAPI as qa
 import requests
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import re
