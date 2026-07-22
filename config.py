@@ -2,7 +2,7 @@
 """
 Created on Mon Apr 21 10:05:19 2025
 
-@author: 484843
+@author: Kieran Martin
 """
 import os
 import json
@@ -16,6 +16,7 @@ def load_config(config_filename="config.json") -> dict:
     with open(config_file_path, "r") as f:
         return json.load(f)
 
+
 def set_project_directory(config_filename="config.json") -> str:
     """
     Change into your Qualtrics‑API repo root (from config["qualtrics_api"]["root"])
@@ -25,6 +26,7 @@ def set_project_directory(config_filename="config.json") -> str:
     PROJECT_DIRECTORY = os.path.expanduser(config["qualtrics_api"]["qualtrics_api_root"])
     os.chdir(PROJECT_DIRECTORY)
     return PROJECT_DIRECTORY
+
 
 def get_sql_credentials_path(config_filename="config.json") -> str:
     """
@@ -62,4 +64,3 @@ def get_qualtrics_credentials_path(config_filename="config.json") -> str:
     """
     config = load_config(config_filename)
     return os.path.expanduser(config["qualtrics_api"]["qualtrics_credentials_path"])
-
