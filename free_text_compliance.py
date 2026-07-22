@@ -20,11 +20,20 @@ import requests
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import re
 from collections import Counter
-###############################################################################
-# Load Qualtrics credentials from a JSON file
-with open('/Users/kieranmartin/Documents/Qualtrics_API_Program/qualtrics_credentials.txt') as f:
-    creds = json.load(f)
+from config import (
+    set_project_directory,
+    get_qualtrics_credentials_path
+)
 
+PROJECT_DIRECTORY = set_project_directory()
+print("Working directory changed to:", PROJECT_DIRECTORY)
+
+QUALTRICS_CREDENTIALS_PATH = get_qualtrics_credentials_path()
+print("Qualtrics credentials path:", QUALTRICS_CREDENTIALS_PATH)
+with open(QUALTRICS_CREDENTIALS_PATH) as f:
+    qualtrics_creds = json.load(f)
+    
+###############################################################################
 # Extract client ID, secret, and data center from credentials
 client_id = creds.get('ID')
 client_secret = creds.get('Secret')
