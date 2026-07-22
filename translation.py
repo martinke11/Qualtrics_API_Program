@@ -41,9 +41,9 @@ with open(QUALTRICS_CREDENTIALS_PATH) as f:
     qualtrics_creds = json.load(f)
 
 # Extract client ID, secret, and data center from credentials
-client_id = creds.get('ID')
-client_secret = creds.get('Secret')
-data_center = creds.get('DataCenter')
+client_id = qualtrics_creds.get('ID')
+client_secret = qualtrics_creds.get('Secret')
+data_center = qualtrics_creds.get('DataCenter')
 base_url = f'https://{data_center}.qualtrics.com'
 
 # Define survey name and set up parameters for token request
