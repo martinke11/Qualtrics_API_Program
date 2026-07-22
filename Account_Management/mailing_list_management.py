@@ -2,7 +2,7 @@
 """
 Created on Fri Jan  3 10:05:39 2025
 
-@author: 484843
+@author: Kieran Martin
 """
 import json
 import os
@@ -20,12 +20,10 @@ print("Working directory changed to:", PROJECT_DIRECTORY)
 
 QUALTRICS_CREDENTIALS_PATH = get_qualtrics_credentials_path()
 print("Qualtrics credentials path:", QUALTRICS_CREDENTIALS_PATH)
-    
-###############################################################################
-# Load Qualtrics credentials from a JSON file using the defined path
 with open(QUALTRICS_CREDENTIALS_PATH) as f:
-    creds = json.load(f)
+    qualtrics_creds = json.load(f)
 
+###############################################################################
 # Extract client ID, secret, and data center from credentials
 client_id = creds.get('ID')
 client_secret = creds.get('Secret')
@@ -33,7 +31,10 @@ data_center = creds.get('DataCenter')
 base_url = f'https://{data_center}.qualtrics.com'
 
 grant_type = 'client_credentials'
-scope = 'write:distributions manage:distributions read:mailing_lists read:mailing_list_contacts write:mailing_lists read:users read:groups write:groups manage:groups manage:mailing_list_contacts manage:mailing_lists read:directories'
+scope = ('write:distributions manage:distributions read:mailing_lists '
+         'read:mailing_list_contacts write:mailing_lists read:users read:groups '
+         'write:groups manage:groups manage:mailing_list_contacts '
+         'manage:mailing_lists read:directories')
 data = qa.return_kwargs_as_dict(grant_type=grant_type, scope=scope)
 
 # Get the bearer token
@@ -44,7 +45,7 @@ directories_response = qa.list_directories(base_url, token)
 print("Directories:", directories_response)
 
 # Example variables: Define the directory ID for the mailing list then choose a name
-directory_id = "POOL_DqlX1IukmQWE3JL"
+directory_id = "POOL_"
 new_mailing_list_name = "Findings Letter Complaint Survey Contact List"
 
 # List mailing lists
@@ -57,7 +58,7 @@ print("Created Mailing List:", create_mailing_list_response)
 
 # after you create the mailing list it will give you the 'mailingListId' to use 
 # to make any updates/edits to the list
-mailing_list_id = "CG_3pqXzIq5nfuuoef"
+mailing_list_id = "CG_"
 
 # Get mailing list details
 get_response = qa.get_mailing_list(base_url, token, directory_id, mailing_list_id)
@@ -65,9 +66,9 @@ print("Mailing List Details:", get_response)
 
 # Share mailing list with user group in Qualtrics. can get group ID from 
 # group_management.py code
-prad_group_id = "GR_9TttXzNhREpoOBE"  
-new_name = "Testing Mailing List - Shared with PRAD"
-# Share the mailing list with the PRAD group
+prad_group_id = "GR_"  
+new_name = "Testing Mailing List - "
+
 update_response = qa.update_mailing_list(
     base_url=base_url,
     token=token,
@@ -78,7 +79,6 @@ update_response = qa.update_mailing_list(
 )
 
 print("Update Mailing List Response:", update_response)
-
 
 # Update mailing list
 update_response = qa.update_mailing_list(base_url, token, directory_id, mailing_list_id, "Updated Name")
@@ -96,13 +96,13 @@ response = qa.list_contacts_in_mailing_list(
     directory_id=directory_id,
     mailing_list_id=mailing_list_id,
     page_size=50,
-    include_embedded=True  # This will now correctly pass as 'true'
+    include_embedded=True  
 )
 print("Contacts in Mailing List:", response)
 
 # definitions below may be reduntent unless you need to use a different list
-directory_id = "POOL_DqlX1IukmQWE3JL"
-mailing_list_id = "CG_3pqXzIq5nfuuoef"
+directory_id = "POOL_"
+mailing_list_id = "CG_"
 
 # Create a new contact in the mailing list
 create_response = qa.create_contact_in_mailing_list(
@@ -110,18 +110,17 @@ create_response = qa.create_contact_in_mailing_list(
     token=token,
     directory_id=directory_id,
     mailing_list_id=mailing_list_id,
-    first_name="Morgan",
-    last_name="martin",
-    email="morgan.mcguirk@cityofchicago.org",
-    phone="2489821887",
+    first_name="",
+    last_name="",
+    email="",
+    phone="",
     ext_ref="External125",
-    embedded_data={"Department": "COPA", "Location": "Chicago"},
-    private_embedded_data={"Salary": "Confidential"},
+    embedded_data={""},
+    private_embedded_data={""},
     language="en",
     unsubscribed=False
 )
 print("Created Contact Response:", create_response)
-
 
 # List bounced contacts in the mailing list
 bounced_response = qa.list_bounced_mailing_list_contacts(
@@ -147,7 +146,7 @@ print("Opted-Out Contacts:", opted_out_response)
 
 
 # Retrieve details of a specific contact in the mailing list
-contact_id = "CID_012345678901234"
+contact_id = "CID_"
 
 contact_response = qa.get_mailing_list_contact(
     base_url=base_url,
@@ -178,8 +177,8 @@ update_response = qa.update_mailing_list_contact(
 print("Updated Contact Response:", update_response)
 
 # Contact ID to update
-contact_id = "CID_1z7aPGr7f9brODQ"
-new_last_name = "McGuirk"
+contact_id = "CID_"
+new_last_name = "McName"
 
 update_contact_response = qa.update_mailing_list_contact(
     base_url=base_url,
@@ -194,9 +193,9 @@ print("Update Contact Response:", update_contact_response)
 
 # Example usage to update "Method of Contact Preference"
 embedded_data_updates = {
-    "CID_1z7aPGr7f9brODQ": {"Method of Contact Preference": "phone"},
-    "CID_C79iaQhMlJFqYKt": {"Method of Contact Preference": "email"},
-    "CID_3QRkZTwXOFHMSKv": {"Method of Contact Preference": "phone"}
+    "CID_": {"Method of Contact Preference": "phone"},
+    "CID_": {"Method of Contact Preference": "email"},
+    "CID_": {"Method of Contact Preference": "phone"}
 }
 
 for contact_id, embedded_data in embedded_data_updates.items():
@@ -213,10 +212,7 @@ print(f"Updated Contact {contact_id} Response:", response)
     
     
 # Delete a specific contact from the mailing list
-contact_id = "CID_25F3YXmkjmTFW82"
-contact_id = "CID_29sHaG5IeRqFJHE"
-contact_id = "CID_1lAagVjvFNvZNfB"
-
+contact_id = "CID_"
 
 delete_response = qa.delete_contact_from_mailing_list(
     base_url=base_url,
@@ -226,39 +222,3 @@ delete_response = qa.delete_contact_from_mailing_list(
     contact_id=contact_id
 )
 print("Delete Contact Response:", delete_response)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
