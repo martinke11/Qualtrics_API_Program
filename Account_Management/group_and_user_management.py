@@ -2,7 +2,7 @@
 """
 Created on Thu Jan  2 15:58:03 2025
 
-@author: 484843
+@author: Kieran Martin
 """
 import json
 import os
@@ -31,7 +31,8 @@ data_center = creds.get('DataCenter')
 base_url = f'https://{data_center}.qualtrics.com'
 
 grant_type = 'client_credentials'
-scope = 'write:mailing_lists read:users read:groups write:groups manage:groups manage:mailing_list_contacts manage:mailing_lists'
+scope = ('write:mailing_lists read:users read:groups write:groups manage:groups '
+        'manage:mailing_list_contacts manage:mailing_lists')
 data = qa.return_kwargs_as_dict(grant_type=grant_type, scope=scope)
 
 # Get the bearer token
@@ -42,31 +43,27 @@ users_list = qa.get_users(base_url, token)
 
 group_list = qa.get_groups(base_url, token)
 
-
 # Get group details
-group_id = "GR_9TttXzNhREpoOBE"  # existing group
+group_id = "GR_"  # existing group
 details = qa.get_group_details(base_url, token, group_id)
 print(json.dumps(details, indent=2))
 
-
 # Create new group
-group_name = "PRAD"
-group_type = "GT_00AHzWl9mQEsnLD"
+group_name = ""
+group_type = "GT_"
 division_id = None
-#create_response = qa.create_group(base_url, token, group_name, group_type, division_id)
-#print(create_response)
-
+create_response = qa.create_group(base_url, token, group_name, group_type, division_id)
+print(create_response)
 
 # Add a Single User
-group_id = "GR_9TttXzNhREpoOBE"
-user_id = "UR_22zFQt6fXImwBpz"  # single user
+group_id = "GR_"
+user_id = "UR_"  # single user
 response = qa.add_user_to_group(base_url, token, group_id, user_id)
+
 print("Response from adding user:", response)
 
-
 # Get list of users in a group
-group_id = "GR_9TttXzNhREpoOBE"
-
+group_id = "GR_"
 response = qa.list_users_in_group(
     base_url=base_url,
     token=token,
@@ -76,11 +73,3 @@ response = qa.list_users_in_group(
 print("Users in group:")
 for user in response.get("result", {}).get("elements", []):
     print(f"- {user.get('firstName')} {user.get('lastName')} ({user.get('email')})")
-
-
-
-
-
-
-    
-
