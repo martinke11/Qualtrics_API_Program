@@ -4,6 +4,12 @@ Repository for managing all scripts associated with using the Qualtrics API and 
 ## Managing API Credentials/Sensitive Information
 - API Credentials(ClientID, Client Secret, and Data Center) must be stored locally in a plain text(.txt) file and added to git-ignore to prevent sensitive info from being shared/leaked.
 - Any other sensitive information (surey names, names, locations, etc) may not be hardcoded into scripts in Repo. They can be used when running the scripts locally but if any scripts need to be edited sensitive information must be redcted prior.
+- All scripts call [config.py](https://github.com/chicagocopa/Qualtrics-API-Program/blob/main/config.py) to set the working directory and read credentials from config.json. Here is what config.json should look like for this project:<br />
+    {<br />
+        "qualtrics_api": {<br />
+          "qualtrics_api_root": "your_root",<br />
+      }<br />
+    }<br />
 
 ## Version Control
 [requirements.txt](https://github.com/martinke11/Qualtrics_API_Program/blob/main/requirements.txt) hold all of the library/package versions that the program currently runs on. To prevent bugs from version conflicts activate virtual environment to run Program:
