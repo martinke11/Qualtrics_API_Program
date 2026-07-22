@@ -2,7 +2,7 @@
 """
 Created on Tue Jan  7 10:14:09 2025
 
-@author: 484843
+@author: Kieran Martin
 """
 import pandas as pd
 import numpy as np
@@ -20,18 +20,23 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 import re
 from collections import Counter
 import sys
-PROJECT_DIRECTORY = os.chdir('C:\\Users\\484843\\Documents\\GitHub\\Qualtrics-API-Program')
-if PROJECT_DIRECTORY not in sys.path:
-    sys.path.append(PROJECT_DIRECTORY)
-import QualAPI as qa
-QUALTRICS_CREDENTIALS_PATH = os.path.expanduser(
-    'C:\\Users\\484843\\Documents\\GitHub\\Qualtrics-API-Program\\copa_qualtrics_credentials.txt'
+from config import (
+    set_project_directory,
+    get_qualtrics_credentials_path
 )
-###############################################################################
-# Load Qualtrics credentials from a JSON file using the defined path
-with open(QUALTRICS_CREDENTIALS_PATH) as f:
-    creds = json.load(f)
+pd.set_option('display.max_rows', None)
+pd.set_option('display.max_columns', None)
+pd.set_option('display.max_colwidth', None)
 
+PROJECT_DIRECTORY = set_project_directory()
+print("Working directory changed to:", PROJECT_DIRECTORY)
+
+QUALTRICS_CREDENTIALS_PATH = get_qualtrics_credentials_path()
+print("Qualtrics credentials path:", QUALTRICS_CREDENTIALS_PATH)
+with open(QUALTRICS_CREDENTIALS_PATH) as f:
+    qualtrics_creds = json.load(f)
+
+###############################################################################
 # Extract client ID, secret, and data center from credentials
 client_id = creds.get('ID')
 client_secret = creds.get('Secret')
@@ -41,7 +46,11 @@ base_url = f'https://{data_center}.qualtrics.com'
 # Define survey name and set up parameters for token request
 survey_name = "Test Survey"
 grant_type = 'client_credentials'
-scope = 'read:distributions write:libraries read:libraries read:surveys read:survey_responses write:distributions manage:distributions read:mailing_lists read:mailing_list_contacts write:mailing_lists read:users read:groups write:groups manage:groups manage:mailing_list_contacts manage:mailing_lists read:directories'
+scope = ('read:distributions write:libraries read:libraries read:surveys '
+         'read:survey_responses write:distributions manage:distributions '
+         'read:mailing_lists read:mailing_list_contacts write:mailing_lists '
+         'read:users read:groups write:groups manage:groups '
+         'manage:mailing_list_contacts manage:mailing_lists read:directories')
 data = qa.return_kwargs_as_dict(grant_type=grant_type, scope=scope)
 
 # Get the bearer token
