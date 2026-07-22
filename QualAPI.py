@@ -4,45 +4,16 @@ Created on Wed Sep 13 09:50:53 2023
 
 @author: kmartin
 """
-
 # Qualtrics API Functions
 # Reference for Qualtrics API endpoints:
 # https://api.qualtrics.com/0f8fac59d1995-api-reference
-
 import requests
 import pandas as pd
 import numpy as np
 import re
+import json
 
-def convert_kwargs_to_string(**kwargs):
-    """
-    Converts the given keyword arguments into a string representation.
-
-    Args:
-        **kwargs: Arbitrary keyword arguments.
-
-    Returns:
-        str: A string representation of the keyword arguments.
-    """
-    kwargs_string = str(kwargs)
-    return kwargs_string
-
-
-def format_dict_for_json(dictionary):
-    """
-    Formats a dictionary by converting it to a JSON-like string.
-    Replaces single quotes with double quotes for proper JSON formatting.
-
-    Args:
-        dictionary (dict): A dictionary to format.
-
-    Returns:
-        str: A JSON-like formatted string with double quotes.
-    """
-    json_like_string = str(dictionary).replace("'", '"')
-    return json_like_string
-
-
+# ========= Base API and Scope Handling Functions
 def return_kwargs_as_dict(**kwargs):
     """
     Returns the keyword arguments as a dictionary.
@@ -213,9 +184,8 @@ def get_token(base_url, client_id, client_secret, data):
     
     return response.json()
 
-# ========================================================
-# Survey Handling Functions
-# ========================================================
+
+# ========= Survey Handling Functions
 def get_survey_list(base_url, token):
     """
     Retrieve a complete list of surveys from the Qualtrics API, handling pagination if necessary.
@@ -300,10 +270,8 @@ def get_survey_id_by_name(survey_list_df, survey_name):
         return survey_id
 
 
-# ========================================================
-# Survey Response Handling Functions
-# ========================================================
-def export_survey_responses(base_url, access_token, survey_id):
+# ========= Survey Response Handling Functions
+def export_survey_responses(base_url, token, survey_id):
     """
     Initiates the export of survey responses from Qualtrics.
 
@@ -320,7 +288,7 @@ def export_survey_responses(base_url, access_token, survey_id):
     # Pull the survey data
     response = requests.post(survey_export_url, 
                              headers={"Content-Type": "application/json",
-                                      "Authorization": "Bearer " + access_token},
+                                      "Authorization": "Bearer " + token},
                              data='{"format": "json", "compress": false}')
     # Convert the data into a more readable format
     response = response.json()    
@@ -338,26 +306,30 @@ def wait_for_export_completion(base_url, token, survey_id, export_progress_id):
         export_progress_id (str): The progress ID of the ongoing export.
 
     Returns:
-        str: The file ID (fid) when the export is complete.
+        str: The file ID (file_id) when the export is complete.
     """
     # Initialize the file ID to empty
-    fid = ""
+    file_id = ""
     
     # Loop until the export is complete and the file ID is available
-    while len(fid) == 0:
+    while len(file_id) == 0:
         # Check the progress of the export
-        response_export_progress = get_response_export_progress(base_url, token, survey_id, export_progress_id)
+        response_export_progress = get_response_export_progress(
+            base_url, 
+            token, 
+            survey_id, 
+            export_progress_id)
 
         # Check if the export is 100% complete
         if response_export_progress.get('result').get('percentComplete') == 100:
             # Check if the status is 'complete'
             if response_export_progress.get('result').get('status') == 'complete':
                 # Get the file ID
-                fid = response_export_progress.get('result').get('fileId')
+                file_id = response_export_progress.get('result').get('fileId')
             else:
                 print("Status: " + response_export_progress.get('result').get('status'))
     
-    return fid
+    return file_id
 
 
 def get_response_export_progress(base_url, access_token, survey_id, export_progress_id):
@@ -367,13 +339,14 @@ def get_response_export_progress(base_url, access_token, survey_id, export_progr
     Args:
         base_url (str): The base URL for the Qualtrics API.
         access_token (str): The bearer access token for API authorization.
-        survey_id (str): The unique ID of the survey whose responses are being exported.
-        export_progress_id (str): The unique ID representing the current export progress.
+        survey_id (str): The unique ID of the survey whose responses are being 
+                         exported.
+        export_progress_id (str): The unique ID representing the current export 
+                                  progress.
 
     Returns:
         dict: A JSON-formatted response indicating the progress status and completion percentage.
     """
-    # Set the export progress URL
     export_progress_url = '{0}/API/v3/surveys/{1}/export-responses/{2}'.format(base_url, survey_id, export_progress_id)
     # Pull the survey data
     response = requests.get(export_progress_url, 
@@ -391,13 +364,13 @@ def get_survey_responses(base_url, access_token, survey_id, file_id):
     Args:
         base_url (str): The base URL for the Qualtrics API.
         access_token (str): The bearer access token for API authorization.
-        survey_id (str): The unique ID of the survey whose responses are to be downloaded.
+        survey_id (str): The unique ID of the survey whose responses are to be 
+                        downloaded.
         file_id (str): The file ID representing the exported survey responses.
 
     Returns:
         requests.Response: The HTTP response containing the survey responses file.
     """
-    # Set the file download URL
     file_download_url = '{0}/API/v3/surveys/{1}/export-responses/{2}/file'.format(base_url, survey_id, file_id)
     # Pull the survey data
     response = requests.get(file_download_url, 
@@ -406,16 +379,17 @@ def get_survey_responses(base_url, access_token, survey_id, file_id):
     return response
 
 
-#below is a moved function:
 def extract_and_organize_responses(survey_responses):
     """
     Extracts and organizes survey responses from the JSON response.
 
     Args:
-        survey_responses (requests.Response): The response object from the survey responses export.
+        survey_responses (requests.Response): The response object from the 
+                                              survey responses export.
 
     Returns:
-        pd.DataFrame or None: A DataFrame containing the organized responses, or None if no responses are available.
+        pd.DataFrame or None: A DataFrame containing the organized responses, 
+                              or None if no responses are available.
     """
     # Convert the response content to JSON
     survey_responses_json = survey_responses.json()
@@ -434,10 +408,12 @@ def extract_and_organize_responses(survey_responses):
 
 def filter_preview_responses(responses_df):
     """
-    Filters out survey preview responses from the responses DataFrame and resets the index.
+    Filters out survey preview responses from the responses DataFrame and 
+    resets the index.
     
     Parameters:
-    responses_df (pd.DataFrame): DataFrame containing survey responses with a 'distributionChannel' column.
+    responses_df (pd.DataFrame): DataFrame containing survey responses with a 
+                                'distributionChannel' column.
     
     Returns:
     pd.DataFrame: Filtered DataFrame with preview responses removed and index reset.
@@ -459,10 +435,8 @@ def organize_responses(responses):
     Returns:
         pd.DataFrame: A DataFrame containing the organized responses.
     """
-    # Initialize an empty DataFrame for the responses
     responses_df = []
 
-    # Process each response
     for response in responses:
         # Extract the current response and normalize it into a DataFrame
         temp_df = pd.json_normalize(response.get('values'))
@@ -472,7 +446,6 @@ def organize_responses(responses):
             # Concatenate the responses into the DataFrame
             responses_df = pd.concat([responses_df, temp_df])
     
-    # Reset the index of the DataFrame
     responses_df = responses_df.reset_index(drop=True)
     
     # Reorder the columns: first non-question columns, then question columns
@@ -525,8 +498,10 @@ def organize_responses(responses):
         'loop_number': loop_number
     }
     question_id_df = pd.DataFrame(question_id_dict)
-    question_id_df = question_id_df.sort_values(by=['question_number', 'sub_question_number', 'loop_number'], ascending=[True, True, True])
-
+    question_id_df = question_id_df.sort_values(
+        by=['question_number', 'sub_question_number', 'loop_number'],
+        ascending=[True, True, True]
+    )
     # Extract the question columns in the new order
     question_df_sorted = responses_df.loc[:, question_id_df['question_column']]
     
@@ -536,13 +511,12 @@ def organize_responses(responses):
     return final_results_df
 
 
-# ========================================================
-# Survey Block and Survey Flow Handling Functions
-# ========================================================
+# ========= Survey Block and Survey Flow Handling Functions
 def get_block_data(base_url, survey_id, token):
     """
-    Fetches survey data from the Qualtrics API, extracts block names and their associated
-    questions, and returns a DataFrame with the ordered blocks and question IDs.
+    Fetches survey data from the Qualtrics API, extracts block names and their 
+    associated questions, and returns a DataFrame with the ordered blocks and 
+    question IDs.
 
     Args:
         base_url (str): The base URL for the Qualtrics API.
@@ -550,19 +524,17 @@ def get_block_data(base_url, survey_id, token):
         token (str): The API token for authentication.
 
     Returns:
-        blocks_df (pd.DataFrame): A DataFrame with Block Name and Question ID columns.
+        blocks_df (pd.DataFrame): A DataFrame with Block Name and Question ID 
+                                 columns.
     """
-    # Make the API request to get the survey data
     survey_url = f'{base_url}/API/v3/surveys/{survey_id}'
     response = requests.get(survey_url, headers={"Authorization": f"Bearer {token}"})
     
     if response.status_code != 200:
         raise Exception(f"Failed to fetch survey data: {response.status_code}, {response.text}")
     
-    # Parse the JSON response
     survey_question_dictionary = response.json()
 
-    # Extract necessary survey details
     survey_result = survey_question_dictionary.get('result', {})
     blocks = survey_result.get('blocks', {})
     flow = survey_result.get('flow', [])
@@ -570,7 +542,6 @@ def get_block_data(base_url, survey_id, token):
     # Process the survey flow to get ordered blocks
     ordered_blocks = process_survey_flow(flow, blocks)
 
-    # Convert to a DataFrame
     blocks_df = pd.DataFrame(ordered_blocks)
 
     return blocks_df
@@ -601,26 +572,26 @@ def process_survey_flow(flow_items, blocks):
             ordered_blocks.extend(extract_block_details(block_id, blocks))
         elif flow_item.get('type') == 'Branch':  # Nested branch
             nested_flow = flow_item.get('flow', [])
-            # Recursively process nested flow
-            ordered_blocks.extend(process_survey_flow(nested_flow, blocks))  
+            # Recursively process nested flow:
+            ordered_blocks.extend(process_survey_flow(nested_flow, blocks)) 
     return ordered_blocks
 
 
-# ========================================================
-# Survey Questions and Question Value Handling Functions
-# ========================================================
+# ========= Survey Questions and Question Value Handling Functions
 def get_survey_questions(base_url, token, survey_id):
     """
-    Retrieve the questions from a specific survey in the Qualtrics API and clean the data by stripping HTML tags.
+    Retrieve the questions from a specific survey in the Qualtrics API and 
+    clean the data by stripping HTML tags.
 
-    This function fetches the survey questions from a specified survey using the Qualtrics API. 
-    It returns the survey data as a dictionary and removes any HTML tags that may be present 
-    in the survey question text.
+    This function fetches the survey questions from a specified survey using 
+    the Qualtrics API. It returns the survey data as a dictionary and removes 
+    any HTML tags that may be present in the survey question text.
 
     Args:
         base_url (str): The base URL for the Qualtrics API.
     token (str): The API token used for authorization.
-        survey_id (str): The unique ID of the survey whose questions are being retrieved.
+        survey_id (str): The unique ID of the survey whose questions are 
+        being retrieved.
 
     Returns:
         dict: A dictionary containing the survey questions with HTML tags removed.
@@ -631,21 +602,27 @@ def get_survey_questions(base_url, token, survey_id):
     # Set the URL for the specific survey
     survey_url = '{0}/API/v3/surveys/{1}'.format(base_url, survey_id)
     
-    # Pull the survey data
     response = requests.get(survey_url, headers={"Authorization": "Bearer " + token})
     
     # Convert the data into a more readable format
-    surveyq_dict = response.json()
+    survey_question_dictionary = response.json()
 
     # Apply HTML cleaning on the survey questions inside 'result'
-    if 'result' in surveyq_dict and 'questions' in surveyq_dict['result']:
-        for question_id, question_data in surveyq_dict['result']['questions'].items():
+    if (
+        'result' in survey_question_dictionary
+        and 'questions' in survey_question_dictionary['result']
+    ):
+        for question_id, question_data in (
+            survey_question_dictionary['result']['questions'].items()
+        ):
             if 'questionText' in question_data:
-                question_data['questionText'] = strip_html(question_data['questionText']).strip()
+                question_data['questionText'] = (
+                    strip_html(question_data['questionText']).strip()
+                )
             if 'choices' in question_data:
                 question_data['choices'] = strip_html(question_data['choices'])
-
-    return surveyq_dict
+            
+    return survey_question_dictionary
 
 
 def strip_html(data):
@@ -682,9 +659,9 @@ def extract_column_data_types(question_dictionary, responses_df, base_url, token
     
     Returns:
     - question_df (pd.DataFrame): DataFrame containing question details.
-    - question_values_df (pd.DataFrame): DataFrame containing question values and answer IDs.
+    - question_values_df (pd.DataFrame): DataFrame containing question values 
+                                         and answer IDs.
     """
-    
     # Extract column names from responses DataFrame
     column_names = responses_df.columns
     question_columns = [col for col in column_names if 'QID' in col]
@@ -725,8 +702,6 @@ def extract_column_data_types(question_dictionary, responses_df, base_url, token
             question_id_list.append(col)
             question_name_list.append(current_question.get('questionName'))
             current_type = current_question.get('questionType').get('type')
-            ## new line below
-            current_selector = current_question.get('questionType').get('selector')
             question_type_list.append(current_type)
             question_selector_list.append(current_question.get('questionType').get('selector'))
 
@@ -734,25 +709,85 @@ def extract_column_data_types(question_dictionary, responses_df, base_url, token
             is_numeric_list.append(is_numeric(current_question))
             
             # Handle different question types
-            # first one is new
-            if current_type == 'TE' and current_selector == 'FORM':
-                handle_te_form_question(current_question, split_column_name, question_text_list, keep_question_list)
-            elif current_type == 'Matrix':
-                handle_matrix_question(current_question, split_column_name, question_text_list, long_text_id_list, question_value_list, answer_id_list, keep_question_list)
+            if current_type == 'Matrix':
+                handle_matrix_question(
+                    current_question, 
+                    split_column_name, 
+                    question_text_list, 
+                    long_text_id_list, 
+                    question_value_list, 
+                    answer_id_list, 
+                    keep_question_list
+                )
             elif current_type == 'CS':
-                handle_cs_question(current_question, split_column_name, question_text_list, is_numeric_list, keep_question_list)
+                handle_cs_question(
+                    current_question, 
+                    split_column_name, 
+                    question_text_list, 
+                    is_numeric_list, 
+                    keep_question_list
+                )
             elif current_type == 'RO':
-                handle_ro_question(current_question, split_column_name, question_text_list, long_text_id_list, question_value_list, answer_id_list, keep_question_list, base_url, token, survey_id)
+                handle_ro_question(
+                    current_question, 
+                    split_column_name, 
+                    question_text_list, 
+                    long_text_id_list, 
+                    question_value_list, 
+                    answer_id_list, 
+                    keep_question_list, 
+                    base_url, 
+                    token, 
+                    survey_id
+                )
             elif current_type == 'Slider':
-                handle_slider_question(current_question, split_column_name, question_text_list, is_numeric_list, keep_question_list, long_text_id_list, question_value_list, answer_id_list)
+                handle_slider_question(
+                    current_question, 
+                    split_column_name, 
+                    question_text_list, 
+                    is_numeric_list, 
+                    keep_question_list, 
+                    long_text_id_list, 
+                    question_value_list, 
+                    answer_id_list
+                )
             elif current_type == 'Timing':
-                handle_timing_question(current_question, question_text_list, is_numeric_list, keep_question_list)
+                handle_timing_question(
+                    current_question, 
+                    question_text_list, 
+                    is_numeric_list, 
+                    keep_question_list
+                )
             elif current_type == 'SS':
-                handle_graphic_slider(current_question, question_selector_list, question_text_list, is_numeric_list, keep_question_list)
+                handle_graphic_slider(
+                    current_question, 
+                    question_selector_list, 
+                    question_text_list, 
+                    is_numeric_list, 
+                    keep_question_list
+                )
             elif current_type == 'PGR':
-                handle_pgr_question(current_question, split_column_name, question_text_list, group_question_id_list, group_answer_id_list, group_value_list, keep_question_list)
+                handle_pgr_question(
+                    current_question, 
+                    split_column_name, 
+                    question_text_list, 
+                    group_question_id_list, 
+                    group_answer_id_list, 
+                    group_value_list, 
+                    keep_question_list
+                )
             else:
-                handle_default_question(current_question, split_column_name, question_text_list, long_text_id_list, question_value_list, answer_id_list, question_type_list, question_selector_list, keep_question_list)
+                handle_default_question(
+                    current_question, 
+                    split_column_name, 
+                    question_text_list, 
+                    long_text_id_list, 
+                    question_value_list, 
+                    answer_id_list, 
+                    question_type_list, 
+                    question_selector_list, 
+                    keep_question_list
+                )
     
     # Convert lists to numpy arrays and create DataFrames
     question_df, question_values_df = create_question_dataframes(
@@ -773,7 +808,8 @@ def extract_column_data_types(question_dictionary, responses_df, base_url, token
 
 def is_numeric(current_question):
     """
-    Checks if a question should be treated as numeric based on type or validation settings.
+    Checks if a question should be treated as numeric based on type or 
+    validation settings.
     """
     question_type = current_question.get('questionType', {}).get('type')
     
@@ -789,27 +825,37 @@ def is_numeric(current_question):
     
     return False
 
-######## new function
-def handle_te_form_question(current_question, split_column_name, 
-                            question_text_list, keep_question_list):
-    """Handle TE questions with a FORM selector."""
-    main_question_text = current_question.get('questionText')  # e.g. 'Athlete Information'
-    choices = current_question.get('choices', {})
-    
-    # The part after QID88_ is the choice key (1, 2, 3, etc.)
-    choice_key = split_column_name[1]
 
-    # Pull the sub-field text, e.g. "First Name:", "Last Name:"
-    sub_field_text = choices.get(choice_key, {}).get('choiceText', '')
-    
-    # Combine main text and sub-field text
-    question_text_list.append(f"{main_question_text}: {sub_field_text}")
-    keep_question_list.append(True)
-######
+def handle_matrix_question(
+        current_question, 
+        split_column_name,          
+        question_text_list, 
+        long_text_id_list, 
+        question_value_list, 
+        answer_id_list, 
+        keep_question_list
+):
+    """
+    Handles extraction for Matrix question types.
 
-def handle_matrix_question(current_question, split_column_name, 
-                           question_text_list, long_text_id_list, 
-                           question_value_list, answer_id_list, keep_question_list):
+    This function processes Matrix-type questions by appending their main question text
+    and sub-question text to the question_text_list. For each sub-question, it captures
+    the unique sub-question ID and iterates through the answer choices to extract 
+    relevant details such as answer IDs and values. If an image description is available 
+    for a choice, it is used as the answer value; otherwise, choiceText is used.
+
+    Parameters:
+    - current_question (dict): The current question dictionary from the survey.
+    - split_column_name (list): A split representation of the column name to identify sub-questions.
+    - question_text_list (list): List to append the combined question and sub-question text.
+    - long_text_id_list (list): List to append unique sub-question IDs.
+    - question_value_list (list): List to append answer values (imageDescription or choiceText).
+    - answer_id_list (list): List to append answer IDs (recode values).
+    - keep_question_list (list): List to append a boolean indicating if the question should be kept.
+
+    Returns:
+    None
+    """
     main_question_text = current_question.get('questionText')
     sub_question_text = current_question.get('subQuestions').get(split_column_name[1]).get('choiceText')
     question_text_list.append(f"{main_question_text}| {sub_question_text}")
@@ -829,7 +875,13 @@ def handle_matrix_question(current_question, split_column_name,
         )
 
 
-def handle_cs_question(current_question, split_column_name, question_text_list, is_numeric_list, keep_question_list):
+def handle_cs_question(
+        current_question, 
+        split_column_name, 
+        question_text_list, 
+        is_numeric_list, 
+        keep_question_list
+):
     """
     Handles extraction for Cumulative Sum (CS) question types.
     """
@@ -841,9 +893,21 @@ def handle_cs_question(current_question, split_column_name, question_text_list, 
     keep_question_list.append(True)
 
 
-def handle_ro_question(current_question, split_column_name, question_text_list, long_text_id_list, question_value_list, answer_id_list, keep_question_list, base_url, token, survey_id):
+def handle_ro_question(
+        current_question, 
+        split_column_name, 
+        question_text_list, 
+        long_text_id_list, 
+        question_value_list, 
+        answer_id_list, 
+        keep_question_list, 
+        base_url, 
+        token, 
+        survey_id
+):
     """
-    Handles extraction for Rank Order (RO) question types, ensuring rank items are correctly added to question_values_df.
+    Handles extraction for Rank Order (RO) question types, ensuring rank items 
+    are correctly added to question_values_df.
     """
     if split_column_name[-1] == 'TEXT':
         question_text_list.append(current_question.get('questionText'))
@@ -875,17 +939,26 @@ def handle_ro_question(current_question, split_column_name, question_text_list, 
             question_value_list.append(str(rank))  # Rank values as strings (1, 2, 3, etc.)
 
 
-
-def handle_slider_question(current_question, split_column_name, question_text_list, is_numeric_list, 
-                           keep_question_list, long_text_id_list, question_value_list, answer_id_list):
+def handle_slider_question(
+        current_question, 
+        split_column_name, 
+        question_text_list, 
+        is_numeric_list, 
+        keep_question_list, 
+        long_text_id_list, 
+        question_value_list, 
+        answer_id_list
+):
     """
-    Handles extraction for Slider question types, ensuring each possible value on the slider is added to question_values_df,
-    with the full question_id including any suffix to distinguish sub-questions.
+    Handles extraction for Slider question types, ensuring each possible value 
+    on the slider is added to question_values_df, with the full question_id 
+    including any suffix to distinguish sub-questions.
     
-    IMPORTANT: qualtrics API doesnt return the number of stars available when pulling 'Choices'
-    instead 'Choices' is how many slider sub-questions there are. Therefore, the slider_range below
-    will need to be adjusted based on how many stars were available in the survey. 
-    Suggest that we keep to max 5 to avoid issues with this.
+    IMPORTANT: qualtrics API doesnt return the number of stars available 
+    when pulling 'Choices' instead 'Choices' is how many slider sub-questions 
+    there are. Therefore, the slider_range below will need to be adjusted based 
+    on how many stars were available in the survey. Suggest that we keep to max 
+    5 to avoid issues with this.
     """
     main_question_text = current_question.get('questionText')
     choices = current_question.get('choices')
@@ -901,14 +974,19 @@ def handle_slider_question(current_question, split_column_name, question_text_li
         for value in slider_range:
             long_text_id_list.append(full_question_id)
             answer_id_list.append(value)
-            question_value_list.append(str(value))  # Store slider values as strings
+            question_value_list.append(str(value))  
         
         sub_question_text = choices.get(split_column_name[1], {}).get('choiceText', '')
         question_text_list.append(f"{main_question_text} | {sub_question_text}")
         keep_question_list.append(True)
 
 
-def handle_timing_question(current_question, question_text_list, is_numeric_list, keep_question_list):
+def handle_timing_question(
+        current_question, 
+        question_text_list, 
+        is_numeric_list, 
+        keep_question_list
+):
     """
     Handles extraction for Timing question types.
     """
@@ -917,7 +995,13 @@ def handle_timing_question(current_question, question_text_list, is_numeric_list
     keep_question_list.append(True)
 
 
-def handle_graphic_slider(current_question, question_selector_list, question_text_list, is_numeric_list, keep_question_list):
+def handle_graphic_slider(
+        current_question, 
+        question_selector_list, 
+        question_text_list, 
+        is_numeric_list, 
+        keep_question_list
+):
     """
     Handles extraction for Graphic Slider (SS) question types.
     """
@@ -929,7 +1013,15 @@ def handle_graphic_slider(current_question, question_selector_list, question_tex
         print('Problems with Type SS (Graphical Slider)!!')
 
 
-def handle_pgr_question(current_question, split_column_name, question_text_list, group_question_id_list, group_answer_id_list, group_value_list, keep_question_list):
+def handle_pgr_question(
+        current_question, 
+        split_column_name, 
+        question_text_list, 
+        group_question_id_list, 
+        group_answer_id_list, 
+        group_value_list, 
+        keep_question_list
+):
     """
     Handles extraction for PGR (Pick, Group, Rank) question types.
     """
@@ -947,7 +1039,17 @@ def handle_pgr_question(current_question, split_column_name, question_text_list,
             group_value_list.append(current_item.get('description'))
 
 
-def handle_default_question(current_question, split_column_name, question_text_list, long_text_id_list, question_value_list, answer_id_list, question_type_list, question_selector_list, keep_question_list):
+def handle_default_question(
+        current_question, 
+        split_column_name, 
+        question_text_list, 
+        long_text_id_list, 
+        question_value_list, 
+        answer_id_list, 
+        question_type_list, 
+        question_selector_list, 
+        keep_question_list
+):
     """
     Handles the default case for question types not specifically handled.
     """
@@ -969,7 +1071,18 @@ def handle_default_question(current_question, split_column_name, question_text_l
                 )
 
 
-def create_question_dataframes(question_id_list, question_name_list, question_text_list, question_type_list, question_selector_list, is_numeric_list, long_text_id_list, question_value_list, answer_id_list, keep_question_list):
+def create_question_dataframes(
+        question_id_list, 
+        question_name_list, 
+        question_text_list, 
+        question_type_list, 
+        question_selector_list, 
+        is_numeric_list, 
+        long_text_id_list, 
+        question_value_list, 
+        answer_id_list, 
+        keep_question_list
+):
     """
     Creates the final dataframes for question data and question values.
     """
@@ -993,46 +1106,84 @@ def create_question_dataframes(question_id_list, question_name_list, question_te
 
 def create_data_type_dictionary(question_df, question_values_df):
     """
-    Creates a dictionary of data types for the questions and adds the corresponding data types to the question DataFrame.
+    Creates a dictionary of data types for the questions and adds the 
+    corresponding data types to the question DataFrame.
     
     Args:
         question_df (pd.DataFrame): DataFrame containing the questions' metadata.
-        question_values_df (pd.DataFrame): DataFrame containing the question values and answer IDs.
+        question_values_df (pd.DataFrame): DataFrame containing the question 
+                                            values and answer IDs.
     
     Returns:
         pd.DataFrame: The updated question DataFrame with an added 'DataType' column.
-    """
+    """    
     # Get lists of the Free Text columns
-    mask = np.array(question_df['question_type'] == 'TE') & np.array(question_df['is_numeric'] == False)
+    mask = (
+        np.array(question_df['question_type'] == 'TE')
+        & np.array(question_df['is_numeric'] is False)
+    )
     free_text_columns = set(question_df['question_id'][mask])
-    
-    # Get lists of the FileUpload columns
-    file_upload_columns = set(question_df['question_id'][question_df['question_type'] == 'FileUpload'])
-    
+
+    # FileUpload columns
+    file_upload_columns = set(
+        question_df['question_id'][
+            question_df['question_type'] == 'FileUpload'
+        ]
+    )
+
     # Get list of Meta columns (categorical but without predefined categories)
-    meta_columns = set(question_df['question_id'][question_df['question_type'] == 'Meta'])
-    
+    meta_columns = set(
+        question_df['question_id'][
+            question_df['question_type'] == 'Meta'
+        ]
+    )
+
     # Get lists of the Draw columns (often signatures)
-    draw_columns = set(question_df['question_id'][question_df['question_type'] == 'Draw'])
-    
+    draw_columns = set(
+        question_df['question_id'][
+            question_df['question_type'] == 'Draw'
+        ]
+    )
+
     # Frequency Plots (Multiple Choice questions)
     multiple_choice_columns = set(question_values_df['question_id'])
-    
-    # Get Timing columns (tracks page times)
-    timing_columns = set(question_df['question_id'][question_df['question_type'] == 'Timing'])
-    
-    # Get Date columns
-    date_columns = set(question_df['question_id'][question_df['question_type'] == 'SBS'])
-    
-    # Get Rank Order columns
-    rank_order_columns = set(question_df['question_id'][question_df['question_type'] == 'RO'])
-    
-    # Get Group columns for questions and responses
-    group_columns = set(question_df['question_id'][question_df['question_type'] == 'PGR'])
-    
+
+    # Timing columns (tracks page times)
+    timing_columns = set(
+        question_df['question_id'][
+            question_df['question_type'] == 'Timing'
+        ]
+    )
+
+    # Date columns
+    date_columns = set(
+        question_df['question_id'][
+            question_df['question_type'] == 'SBS'
+        ]
+    )
+
+    # Rank Order columns
+    rank_order_columns = set(
+        question_df['question_id'][
+            question_df['question_type'] == 'RO'
+        ]
+    )
+
+    # Group columns for questions and responses
+    group_columns = set(
+        question_df['question_id'][
+            question_df['question_type'] == 'PGR'
+        ]
+    )
+
     # Get the numeric columns
     # numeric_columns = set(question_df['question_id'][question_df['is_numeric']])
-    numeric_columns = set(question_df['question_id'][question_df['is_numeric'] | question_df['question_id'].isin(rank_order_columns)])
+    numeric_columns = set(
+        question_df['question_id'][
+            question_df['is_numeric']
+            | question_df['question_id'].isin(rank_order_columns)
+        ]
+    )
     
     # Create a dictionary of all the different column types
     column_data_types = {
@@ -1050,9 +1201,12 @@ def create_data_type_dictionary(question_df, question_values_df):
     
     # Determine the data type for each question
     data_type = []
+
     for question_id, question_type, question_selector in zip(
-        question_df['question_id'], question_df['question_type'], question_df['question_selector']):
-        
+            question_df['question_id'],
+            question_df['question_type'],
+            question_df['question_selector'],
+    ):  
         # Prioritize Rank Order
         if question_id in column_data_types.get('RankOrder', []):
             data_type.append('Numeric')
@@ -1100,44 +1254,75 @@ def reorder_question_df_with_normalized_ids(question_df, blocks_df):
     question_df['normalized_id'] = question_df['question_id'].str.extract(r'^(QID\d+)')
     
     # Merge blocks_df with question_df based on the normalized ID
-    merged_df = blocks_df.merge(question_df, how='left', left_on='Question ID', right_on='normalized_id')
+    merged_df = blocks_df.merge(
+        question_df, 
+        how='left', 
+        left_on='Question ID', 
+        right_on='normalized_id'
+    )
     
     # Drop unnecessary columns and reorder
     reordered_question_df = merged_df.drop(columns=['normalized_id']).reset_index(drop=True)
 
     return reordered_question_df
 
+# def reorder_question_df_with_normalized_ids(question_df, blocks_df):
+#     """
+#     Reorders the question_df DataFrame to match the Question ID order in blocks_df,
+#     creating a separate column for normalized Question IDs.
 
-def reorder_question_df(question_df, blocks_df):
-    """
-    Reorders the question_df DataFrame to match the Question ID order in blocks_df.
+#     Args:
+#         question_df (pd.DataFrame): DataFrame containing question metadata.
+#         blocks_df (pd.DataFrame): DataFrame with ordered Block Names and Question IDs.
 
-    Args:
-        question_df (pd.DataFrame): DataFrame containing question metadata.
-        blocks_df (pd.DataFrame): DataFrame with ordered Block Names and Question IDs.
+#     Returns:
+#         pd.DataFrame: A reordered question_df DataFrame.
+#     """
+#     # Add normalized ID column to question_df
+#     question_df['normalized_id'] = question_df['question_id'].str.extract(r'^(QID\d+)')
+    
+#     # Merge blocks_df with question_df based on the normalized ID
+#     merged_df = blocks_df.merge(question_df, how='left', left_on='Question ID', right_on='normalized_id')
+    
+#     # Sort within each block by Question ID
+#     merged_df = merged_df.sort_values(by=['Block Name', 'Question ID', 'question_id'])
+    
+#     # Drop unnecessary columns and reset index
+#     reordered_question_df = merged_df.drop(columns=['normalized_id']).reset_index(drop=True)
 
-    Returns:
-        pd.DataFrame: A reordered question_df DataFrame.
-    """
-    # Filter question_df to include only Question IDs in blocks_df
-    reordered_question_df = question_df.set_index('question_id').loc[blocks_df['Question ID']].reset_index()
+#     return reordered_question_df
 
-    return reordered_question_df
+# def reorder_question_df(question_df, blocks_df):
+#     """
+#     Reorders the question_df DataFrame to match the Question ID order in blocks_df.
 
-# ========================================================
-# Survey Response Cleaning Handling Functions
-# ========================================================
+#     Args:
+#         question_df (pd.DataFrame): DataFrame containing question metadata.
+#         blocks_df (pd.DataFrame): DataFrame with ordered Block Names and Question IDs.
+
+#     Returns:
+#         pd.DataFrame: A reordered question_df DataFrame.
+#     """
+#     # Filter question_df to include only Question IDs in blocks_df
+#     reordered_question_df = question_df.set_index('question_id').loc[blocks_df['Question ID']].reset_index()
+
+#     return reordered_question_df
+
+
+# ========= Survey Response Cleaning Handling Functions
 def clean_responses(responses_df, question_df):
     """
-    Extracts columns with questions from responses_df, removes rows with all NaN values 
-    in those columns, and resets the index.
+    Extracts columns with questions from responses_df, removes rows with all
+    NaN values in those columns, and resets the index.
     
     Parameters:
     responses_df (pd.DataFrame): DataFrame containing survey responses.
-    question_df (pd.DataFrame): DataFrame containing questions, with a 'question_id' column.
+    question_df (pd.DataFrame): DataFrame containing questions, with a 
+                                'question_id' column.
     
     Returns:
-    pd.DataFrame: Cleaned DataFrame with rows containing all NaN values removed and index reset.
+    pd.DataFrame: Cleaned DataFrame with rows containing all NaN values removed 
+                  and index reset.
     """
     # Extract only columns with questions
     df = responses_df.loc[:, question_df['question_id'].tolist()]
@@ -1156,27 +1341,29 @@ def subset_by_date_range(responses_df, start_date, end_date):
     """
     Subset the responses DataFrame based on a specified date range.
 
-    This function filters the `responses_df` DataFrame to include only rows where the 
-    'recordedDate' column falls within the specified `start_date` and `end_date` range.
-    The 'recordedDate' column must be in a timezone-aware datetime format (UTC). The 
-    function will automatically convert `start_date` and `end_date` to UTC if they are 
-    timezone-naive.
+    This function filters the `responses_df` DataFrame to include only rows 
+    where the 'recordedDate' column falls within the specified `start_date` and 
+    `end_date` range. The 'recordedDate' column must be in a timezone-aware 
+    datetime format (UTC). The function will automatically convert `start_date` 
+    and `end_date` to UTC if they are timezone-naive.
 
     Parameters:
     ----------
     responses_df : pd.DataFrame
-        The DataFrame containing survey responses with a 'recordedDate' column in ISO format.
+        The DataFrame containing survey responses with a 'recordedDate' column 
+        in ISO format.
     start_date : str or datetime-like
-        The start of the date range, inclusive. It should be in a format compatible with 
-        `pd.to_datetime`.
+        The start of the date range, inclusive. It should be in a format 
+        compatible with `pd.to_datetime`.
     end_date : str or datetime-like
-        The end of the date range, inclusive. It should be in a format compatible with 
-        `pd.to_datetime`.
+        The end of the date range, inclusive. It should be in a format 
+        compatible with `pd.to_datetime`.
 
     Returns:
     -------
     pd.DataFrame
-        A subset of `responses_df` where the 'recordedDate' is within the specified date range.
+        A subset of `responses_df` where the 'recordedDate' is within the 
+        specified date range.
         
     Example:
     -------
@@ -1196,10 +1383,8 @@ def subset_by_date_range(responses_df, start_date, end_date):
     return subset_df
 
 
-# ========================================================
-# Qualtrics Account Management Functions
-# Users and Groups Handling Functions
-# ========================================================
+# ========= Qualtrics Account Management Functions
+# ========= Users and Groups Handling Functions
 def get_users(base_url, token):
     """
     Fetches the list of users from the API.
@@ -1211,10 +1396,8 @@ def get_users(base_url, token):
     Returns:
         dict: A JSON object containing the list of users.
     """
-    # Set the endpoint URL
     endpoint_url = '{0}/API/v3/users'.format(base_url)
     
-    # Pull the survey data
     response = requests.get(endpoint_url, 
                             headers={"Content-Type": "application/json",
                                      "Authorization": "Bearer " + token}) 
@@ -1322,7 +1505,8 @@ def list_users_in_group(base_url, token, group_id, offset=0):
     Retrieves a list of users in a specific Qualtrics group.
 
     Args:
-        base_url (str): The base URL of your Qualtrics data center (e.g., 'https://{data_center}.qualtrics.com').
+        base_url (str): The base URL of your Qualtrics data center 
+        (e.g., 'https://{data_center}.qualtrics.com').
         token (str): OAuth2 bearer token with read:groups scope.
         group_id (str): The Qualtrics Group ID, e.g., 'GR_12345abcdef'.
         offset (int): Pagination offset, default is 0.
@@ -1344,9 +1528,7 @@ def list_users_in_group(base_url, token, group_id, offset=0):
     response = requests.get(endpoint_url, headers=headers, params=params)
     return response.json()
 
-# ========================================================
-# Directory Handling Functions
-# ========================================================
+# ========= Directory Handling Functions
 def list_directories(base_url, token):
     """
     List all XM Directories available to the authenticated user.
@@ -1368,9 +1550,7 @@ def list_directories(base_url, token):
     return response.json()
 
 
-# ========================================================
-# Library Handling Functions
-# ========================================================
+# ========= Library Handling Functions
 def list_libraries(base_url, token):
     """
     Fetch all libraries available to the caller in Qualtrics.
@@ -1380,7 +1560,8 @@ def list_libraries(base_url, token):
         token (str): Bearer token for authorization.
 
     Returns:
-        dict: Parsed JSON response from the Qualtrics API containing the list of libraries.
+        dict: Parsed JSON response from the Qualtrics API containing the 
+        list of libraries.
 
     Raises:
         Exception: If the API request fails.
@@ -1393,7 +1574,7 @@ def list_libraries(base_url, token):
 
     try:
         response = requests.get(endpoint_url, headers=headers)
-        response.raise_for_status()  # Raise HTTPError for bad responses
+        response.raise_for_status()  
         return response.json()
     except requests.exceptions.RequestException as e:
         raise Exception(f"Error fetching libraries: {e}")
@@ -1412,7 +1593,8 @@ def list_library_messages(base_url, token, library_id, category=None, offset=0):
         offset (int, optional): The starting position for pagination. Default is 0.
 
     Returns:
-        dict: Parsed JSON response from the Qualtrics API containing the list of messages.
+        dict: Parsed JSON response from the Qualtrics API containing the list 
+             of messages.
 
     Raises:
         Exception: If the API request fails.
@@ -1471,10 +1653,8 @@ def create_library_message(base_url, token, library_id, description, category, m
                   }
               }
     """
-    # Construct the endpoint URL
     endpoint_url = f"{base_url}/API/v3/libraries/{library_id}/messages"
-    
-    # Prepare the request payload
+
     payload = {
         "description": description,
         "category": category,
@@ -1538,9 +1718,41 @@ def get_library_message(base_url, token, library_id, message_id):
     response.raise_for_status()  # (Optional) Raise HTTPError for bad responses
     return response.json()
 
-# ========================================================
-# Mailing List Handling Functions
-# ========================================================
+
+def update_library_message(
+        base_url, token, 
+        library_id, 
+        description, 
+        category, 
+        messages, 
+        message_id
+):
+    """
+    """
+    # Construct the endpoint URL
+    endpoint_url = f"{base_url}/API/v3/libraries/{library_id}/messages/{message_id}"
+    
+    # Prepare the request payload
+    payload = {
+        "description": description,
+        "messages": messages
+    }
+
+    # Set the request headers, including the OAuth2 Bearer token
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token}"
+    }
+
+    # Execute the POST request
+    response = requests.put(endpoint_url, headers=headers, json=payload)
+    
+    # Return the JSON response
+    return response.json()
+
+
+# ========= Mailing List Handling Functions
 def list_mailing_lists(base_url, token, directory_id, page_size=100, skip_token=None, include_count=True):
     """
     Retrieves a list of mailing lists in an XM Directory.
@@ -1632,6 +1844,7 @@ def create_mailing_list(base_url, token, directory_id, name, owner_id=None, prio
     return response.json()
 
 
+
 def get_mailing_list(base_url, token, directory_id, mailing_list_id, include_count=True):
     """
     Retrieves details of a specific mailing list.
@@ -1715,10 +1928,16 @@ def delete_mailing_list(base_url, token, directory_id, mailing_list_id):
     return response.json()
 
 
-# ========================================================
-# Contact List WITHIN Mailing List Handling Functions
-# ========================================================
-def list_contacts_in_mailing_list(base_url, token, directory_id, mailing_list_id, page_size=50, skip_token=None, include_embedded=False):
+# ========= Contact List WITHIN Mailing List Handling Functions
+def list_contacts_in_mailing_list(
+        base_url, 
+        token, 
+        directory_id, 
+        mailing_list_id, 
+        page_size=50, 
+        skip_token=None, 
+        include_embedded=False
+):
     """
     Retrieves a list of contacts in a specified mailing list.
 
@@ -1751,7 +1970,21 @@ def list_contacts_in_mailing_list(base_url, token, directory_id, mailing_list_id
     return response.json()
 
 
-def create_contact_in_mailing_list(base_url, token, directory_id, mailing_list_id, first_name, last_name, email, phone=None, ext_ref=None, embedded_data=None, private_embedded_data=None, language=None, unsubscribed=False):
+def create_contact_in_mailing_list(
+        base_url, 
+        token, 
+        directory_id, 
+        mailing_list_id, 
+        first_name, 
+        last_name, 
+        email, 
+        phone=None, 
+        ext_ref=None, 
+        embedded_data=None, 
+        private_embedded_data=None, 
+        language=None, 
+        unsubscribed=False
+):
     """
     Creates a contact in a specified mailing list.
 
@@ -1790,11 +2023,57 @@ def create_contact_in_mailing_list(base_url, token, directory_id, mailing_list_i
         "Content-Type": "application/json"
     }
 
-    response = requests.post(endpoint_url, headers=headers, json={k: v for k, v in data.items() if v is not None})
+    response = requests.post(
+        endpoint_url, 
+        headers=headers, 
+        json={k: v for k, v in data.items() if v is not None}
+    )
     return response.json()
 
+def get_contact_lookup_id_in_mailing_list(
+    base_url: str,
+    token: str,
+    directory_id: str,
+    mailing_list_id: str,
+    contact_id: str
+) -> str:
+    """
+    Retrieve the contactLookupId (CGC_…) for a contact in a mailing list,
+    using OAuth2 Bearer authentication.
+    """
+    url = (
+        f"{base_url}/API/v3"
+        f"/directories/{directory_id}"
+        f"/mailinglists/{mailing_list_id}"
+        f"/contacts/{contact_id}"
+    )
+    headers = {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {token}"
+    }
 
-def list_bounced_mailing_list_contacts(base_url, token, directory_id, mailing_list_id, page_size=50, skip_token=None, since=None):
+    resp = requests.get(url, headers=headers)
+    try:
+        resp.raise_for_status()
+    except requests.HTTPError:
+        print("=== GET CONTACT LOOKUP FAILED ===")
+        print("URL:", url)
+        print("Status:", resp.status_code)
+        print("Body:", resp.text)
+        raise
+
+    return resp.json()["result"]["contactLookupId"]
+
+
+def list_bounced_mailing_list_contacts(
+        base_url, 
+        token, 
+        directory_id, 
+        mailing_list_id, 
+        page_size=50, 
+        skip_token=None, 
+        since=None
+):
     """
     Retrieves a list of bounced contacts in a specified mailing list.
 
@@ -1821,11 +2100,23 @@ def list_bounced_mailing_list_contacts(base_url, token, directory_id, mailing_li
         "Accept": "application/json"
     }
 
-    response = requests.get(endpoint_url, headers=headers, params={k: v for k, v in params.items() if v is not None})
+    response = requests.get(
+        endpoint_url, 
+        headers=headers, 
+        params={k: v for k, v in params.items() if v is not None}
+    )
     return response.json()
 
 
-def list_opted_out_mailing_list_contacts(base_url, token, directory_id, mailing_list_id, page_size=50, skip_token=None, since=None):
+def list_opted_out_mailing_list_contacts(
+        base_url, 
+        token, 
+        directory_id, 
+        mailing_list_id, 
+        page_size=50, 
+        skip_token=None, 
+        since=None
+):
     """
     Retrieves a list of opted-out contacts in a specified mailing list.
 
@@ -1852,11 +2143,21 @@ def list_opted_out_mailing_list_contacts(base_url, token, directory_id, mailing_
         "Accept": "application/json"
     }
 
-    response = requests.get(endpoint_url, headers=headers, params={k: v for k, v in params.items() if v is not None})
+    response = requests.get(
+        endpoint_url, 
+        headers=headers, 
+        params={k: v for k, v in params.items() if v is not None}
+    )
     return response.json()
 
 
-def get_mailing_list_contact(base_url, token, directory_id, mailing_list_id, contact_id):
+def get_mailing_list_contact(
+        base_url, 
+        token, 
+        directory_id, 
+        mailing_list_id, 
+        contact_id
+):
     """
     Retrieves a specific contact in a mailing list.
 
@@ -1880,7 +2181,13 @@ def get_mailing_list_contact(base_url, token, directory_id, mailing_list_id, con
     return response.json()
 
 
-def update_mailing_list_contact(base_url, token, directory_id, mailing_list_id, contact_id, **kwargs):
+def update_mailing_list_contact(
+    base_url, 
+    token, 
+    directory_id, 
+    mailing_list_id, 
+    contact_id, 
+    **kwargs):
     """
     Updates a contact in a mailing list.
 
@@ -1901,7 +2208,10 @@ def update_mailing_list_contact(base_url, token, directory_id, mailing_list_id, 
         "Content-Type": "application/json"
     }
 
-    response = requests.put(endpoint_url, headers=headers, json={k: v for k, v in kwargs.items() if v is not None})
+    response = requests.put(
+        endpoint_url,
+        headers=headers, 
+        json={k: v for k, v in kwargs.items() if v is not None})
     return response.json()
 
 
@@ -1929,9 +2239,393 @@ def delete_contact_from_mailing_list(base_url, token, directory_id, mailing_list
     return response.json()
 
 
-# ========================================================
-# Survey Editing Handling Functions
-# ========================================================
+# ========= Distributions Handling Functions
+def list_distribution_history(
+    base_url,
+    token,
+    distribution_id,
+    skip_token=None
+):
+    """
+    Retrieves a list showing the distribution history for a specific 
+    distribution from Qualtrics.
+    
+    Note: This API endpoint is only supported for users on XM Directory 
+          (not for Genesis Contacts).
+
+    Args:
+        base_url (str): The base URL of your Qualtrics data center 
+                        (e.g., 'https://yul1.qualtrics.com').
+        api_token (str): API token for authentication (provided in 
+                        the X-API-TOKEN header).
+        distribution_id (str): The ID for the desired distribution
+                                (e.g., 'EMD_1234567890abcde').
+        skip_token (str, optional): The start position for pagination when 
+                                    using pagination.
+
+    Returns:
+        dict: JSON response from the Qualtrics API, typically including:
+            {
+                "result": {
+                    "elements": [...],
+                    "nextPage": "string or null"
+                },
+                "meta": {
+                    "httpStatus": "string",
+                    "requestId": "string",
+                    "notice": "string"
+                }
+            }
+    """
+    endpoint_url = f"{base_url}/API/v3/distributions/{distribution_id}/history"
+
+    params = {"distributionId": distribution_id}
+    if skip_token:
+        params["skipToken"] = skip_token
+
+    headers = {
+        "Accept": "application/json",
+        "X-API-TOKEN": token
+    }
+
+
+    response = requests.get(endpoint_url, headers=headers, params=params)
+    response.raise_for_status()  
+    return response.json()
+
+
+def list_SMS_distrobution(
+        base_url,
+        token,
+        survey_id,
+        page_size=None,
+        skip_token=None,
+    ):
+    endpoint_url = f"{base_url}/API/v3/distributions/sms"
+    params = {"surveyId": survey_id}
+    if page_size is not None:
+        params["pageSize"] = page_size
+    if skip_token:
+        params["skipToken"] = skip_token
+
+    headers = {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {token}"
+    }
+
+    response = requests.get(endpoint_url, headers=headers, params=params)
+    response.raise_for_status()  # optional: raise an exception for 4xx/5xx status codes
+    return response.json()
+
+    
+def delete_SMS_distribution(base_url, token, sms_distribution_id, survey_id):
+    endpoint_url = f"{base_url}/API/v3/distributions/sms/{sms_distribution_id}"
+    params = {"surveyId": survey_id, "smsDistributionId": sms_distribution_id}
+    
+    headers = {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {token}"
+    }
+
+    response = requests.delete(endpoint_url, headers=headers, params=params)
+    response.raise_for_status()
+    return response.json()
+
+
+def delete_email_distribution(base_url, token, distribution_id):
+    endpoint_url = f"{base_url}/API/v3/distributions/{distribution_id}"
+    params = {"distributionId": distribution_id}
+    
+    headers = {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {token}"
+    }
+
+    response = requests.delete(endpoint_url, headers=headers, params=params)
+    response.raise_for_status()
+    return response.json()
+
+
+def list_distributions(
+    base_url,
+    token,
+    survey_id,
+    distribution_request_type=None,
+    mailing_list_id=None,
+    offset=None,
+    page_size=None,
+    send_end_date=None,
+    send_start_date=None,
+    skip_token=None,
+    use_new_pagination_scheme=None
+):
+    """
+    Retrieves a list of distributions for a particular survey from Qualtrics.
+
+    Args:
+        base_url (str): The base URL of your Qualtrics data center 
+                        (e.g., 'https://{data_center}.qualtrics.com').
+        token (str): OAuth2 bearer token with 'read:distributions' scope.
+        survey_id (str): The survey ID to which distributions are related (e.g., 'SV_123abc').
+        distribution_request_type (str, optional):
+            The distribution type to filter by. Possible values:
+            'Invite', 'ThankYou', 'Reminder', 'Email', 'Portal', 'PortalInvite', 'GeneratedInvite'.
+        mailing_list_id (str, optional):
+            The mailing list or contact group associated with the distribution(s).
+        offset (int, optional):
+            The starting offset for the pagination (deprecated, but still supported).
+        page_size (int, optional):
+            The maximum number of distributions to return per request (1–100).
+        send_end_date (str, optional):
+            Ending range on the distribution send date (e.g., '2020-07-21T17:32:28Z').
+        send_start_date (str, optional):
+            Starting range on the distribution send date (e.g., '2020-07-20T17:32:28Z').
+        skip_token (str, optional):
+            The start position for pagination when using the new pagination scheme.
+        use_new_pagination_scheme (bool, optional):
+            Whether to enable the new string-based pagination functionality.
+
+    Returns:
+        dict: JSON response from the Qualtrics API. Typically contains:
+            {
+                "result": {
+                    "elements": [...],
+                    "nextPage": "string or null"
+                },
+                "meta": {
+                    "httpStatus": "string",
+                    "requestId": "string",
+                    "notice": "string"
+                }
+            }
+    """
+    endpoint_url = f"{base_url}/API/v3/distributions"
+
+    # Build query parameters
+    params = {"surveyId": survey_id}
+    if distribution_request_type:
+        params["distributionRequestType"] = distribution_request_type
+    if mailing_list_id:
+        params["mailingListId"] = mailing_list_id
+    if offset is not None:
+        params["offset"] = offset
+    if page_size is not None:
+        params["pageSize"] = page_size
+    if send_end_date:
+        params["sendEndDate"] = send_end_date
+    if send_start_date:
+        params["sendStartDate"] = send_start_date
+    if skip_token:
+        params["skipToken"] = skip_token
+    if use_new_pagination_scheme is not None:
+        # Must convert boolean to lowercase string for query parameter (True -> 'true')
+        params["useNewPaginationScheme"] = str(use_new_pagination_scheme).lower()
+
+    headers = {
+        "Accept": "application/json",
+        "Authorization": f"Bearer {token}"
+    }
+
+    response = requests.get(endpoint_url, headers=headers, params=params)
+    response.raise_for_status() 
+    return response.json()
+        
+
+def create_sms_distribution(
+    base_url: str,
+    token: str,
+    survey_id: str,
+    name: str,
+    send_date: str,
+    method: str = "Invite",
+    mailing_list_id: str = None,
+    contact_id: str = None,
+    sample_id: str = None,
+    transaction_batch_id: str = None,
+    transaction_id: str = None,
+    library_id: str = None,
+    message_id: str = None,
+    message_text: str = None,
+    parent_distribution_id: str = None,
+    survey_link_expiration_date: str = None
+) -> dict:
+    """
+    Create a survey SMS distribution in Qualtrics using OAuth2 Bearer auth.
+
+    Args:
+        base_url: Qualtrics base URL, e.g. "https://yourdatacenter.qualtrics.com"
+        token: OAuth2 Bearer token with write:distributions scope
+        survey_id: Survey ID to distribute (e.g. "SV_xxx")
+        name: Name for the SMS distribution (<=100 chars)
+        send_date: ISO8601 send date/time (required)
+        method: "Invite", "Interactive", "Reminder", or "Thankyou"
+        mailing_list_id: Mailing List ID for batch distribution
+        contact_id: Contact Lookup ID for individual distribution
+        sample_id: Sample ID (subgroup of mailing list)
+        transaction_batch_id: Transaction Batch ID
+        transaction_id: Transaction ID
+        library_id: Library ID of an SMS message (e.g. "UR_xxx")
+        message_id: Message ID in that library (e.g. "MS_xxx")
+        message_text: Custom SMS text (<=10,000 chars)
+        parent_distribution_id: For Reminder/Thankyou, the parent SMS distribution ID
+        survey_link_expiration_date: ISO8601 expiration for the survey link
+
+    Returns:
+        Parsed JSON response from Qualtrics (dict).
+    """
+    url = f"{base_url}/API/v3/distributions/sms"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token}"
+    }
+
+    payload = {
+        "surveyId": survey_id,
+        "name": name,
+        "sendDate": send_date,
+        "method": method,
+        "recipients": {}
+    }
+
+    # Recipients for Invite/Interactive
+    if method not in ("Reminder", "Thankyou"):
+        if transaction_batch_id:
+            payload["recipients"]["transactionBatchId"] = transaction_batch_id
+        elif mailing_list_id:
+            payload["recipients"]["mailingListId"] = mailing_list_id
+            if contact_id:
+                payload["recipients"]["contactId"] = contact_id
+            if sample_id:
+                payload["recipients"]["sampleId"] = sample_id
+            if transaction_id:
+                payload["recipients"]["transactionId"] = transaction_id
+        else:
+            raise ValueError(
+                "For Invite/Interactive you must supply transaction_batch_id or mailing_list_id"
+            )
+
+    # Message for Invite/Reminder/Thankyou
+    if method in ("Invite", "Reminder", "Thankyou"):
+        payload["message"] = {}
+        if library_id and message_id:
+            payload["message"]["libraryId"] = library_id
+            payload["message"]["messageId"] = message_id
+        elif message_text:
+            payload["message"]["messageText"] = message_text
+        else:
+            raise ValueError(
+                "For Invite/Reminder/Thankyou you must supply library_id & message_id or message_text"
+            )
+
+    # Parent distribution (Reminder/Thankyou)
+    if parent_distribution_id:
+        payload["parentDistributionId"] = parent_distribution_id
+
+    # Link expiration
+    if survey_link_expiration_date:
+        payload["surveyLinkExpirationDate"] = survey_link_expiration_date
+
+    resp = requests.post(url, headers=headers, json=payload, timeout=16)
+
+    try:
+        resp.raise_for_status()
+    except requests.HTTPError:
+        print("=== REQUEST PAYLOAD ===")
+        print(json.dumps(payload, indent=2))
+        print("\n=== RESPONSE ===")
+        print(resp.status_code, resp.text)
+        raise
+
+    return resp.json()
+
+
+def create_email_distribution(
+    base_url: str,
+    token: str,
+    library_id: str,
+    message_id: str,
+    survey_id: str,
+    mailing_list_id: str = None,
+    contact_id: str = None,
+    directory_id: str = None,
+    transaction_batch_id: str = None,
+    from_email: str = None,
+    reply_to_email: str = None,
+    from_name: str = None,
+    subject: str = None,
+    expiration_date: str = None,
+    distribution_type: str = None,
+    send_date: str = None
+) -> dict:
+    """
+    Create a survey email distribution in Qualtrics using OAuth2-style Bearer token
+    (same header style as list_distributions).
+
+    Raises and prints the full response body on HTTP error for easier debugging.
+    """
+    url = f"{base_url}/API/v3/distributions"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {token}"
+    }
+
+    payload = {
+        "message": {
+            "libraryId": library_id,
+            "messageId": message_id
+        },
+        "recipients": {},
+        "header": {},
+        "surveyLink": {
+            "surveyId": survey_id
+        }
+    }
+
+    # recipients
+    if mailing_list_id:
+        payload["recipients"]["mailingListId"] = mailing_list_id
+    if contact_id:
+        payload["recipients"]["contactId"] = contact_id
+    if directory_id:
+        payload["recipients"]["directoryId"] = directory_id
+    if transaction_batch_id:
+        payload["recipients"]["transactionBatchId"] = transaction_batch_id
+
+    # header
+    if from_email:
+        payload["header"]["fromEmail"] = from_email
+    if reply_to_email:
+        payload["header"]["replyToEmail"] = reply_to_email
+    if from_name:
+        payload["header"]["fromName"] = from_name
+    if subject:
+        payload["header"]["subject"] = subject
+
+    # surveyLink details
+    if expiration_date:
+        payload["surveyLink"]["expirationDate"] = expiration_date
+    if distribution_type:
+        payload["surveyLink"]["type"] = distribution_type
+
+    # optional send date
+    if send_date:
+        payload["sendDate"] = send_date
+
+    resp = requests.post(url, headers=headers, json=payload)
+
+    try:
+        resp.raise_for_status()
+    except requests.HTTPError:
+        print("=== REQUEST PAYLOAD ===")
+        print(json.dumps(payload, indent=2))
+        print("\n=== RESPONSE ===")
+        print(resp.status_code, resp.text)
+        raise
+
+    return resp.json()
+
+
+# ========= Survey Editing Handling Functions
 def get_survey_meta(base_url, token, survey_id):
     """
     Fetches the metadata for a given survey from the API.
@@ -1944,14 +2638,13 @@ def get_survey_meta(base_url, token, survey_id):
     Returns:
         dict: A JSON object containing the survey's metadata.
     """
-    # Set the endpoint URL
     endpoint_url = '{0}/API/v3/survey-definitions/{1}/metadata'.format(base_url, survey_id)
     
     # Pull the survey metadata
     response = requests.get(endpoint_url, 
                             headers={"Content-Type": "application/json",
                                      "Authorization": "Bearer " + token}) 
-    
+
     # Convert the data into a more readable format
     response = response.json()    
     return response
@@ -2018,29 +2711,33 @@ def get_full_survey_info(base_url, token, survey_id):
     return response.json()
 
 
-def share_survey(base_url, token, survey_id, data):
+def share_survey(base_url, token, survey_id, recipient_id, permissions):
     """
-    Shares a survey with a group or person.
+    Shares a survey with another user in your brand.
 
     Args:
-        base_url (str): Base URL for the API.
-        access_token (str): Access token for authentication.
-        survey_id (str): Survey ID.
-        data (dict): Data to share the survey.
+        base_url (str): Qualtrics base URL (e.g., https://{data_center}.qualtrics.com).
+        token (str): Your Qualtrics API token.
+        survey_id (str): The unique identifier for the survey (e.g., SV_...).
+        recipient_id (str): The userId or groupId the survey is shared with.
+        permissions (dict): The permissions object specifying the various permissions being assigned.
 
     Returns:
-        dict: Response from the API.
+        dict: JSON response from the API.
     """
-    share_survey_url = '{0}/API/v3/surveys/{1}/permissions/collaborations'.format(base_url, survey_id)
-    response = requests.post(share_survey_url,
-                             headers={"Content-Type": "application/json",
-                                      "Authorization": "Bearer " + token},
-                             data=data)
+    endpoint_url = f"{base_url}/surveys/{survey_id}/permissions/collaborations"
+    data = {
+        "recipientId": recipient_id,
+        "permissions": permissions
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "X-API-TOKEN": token
+    }
+    
+    response = requests.post(endpoint_url, headers=headers, json=data)
     return response.json()
-
-
-
-
 
 # yul1.qualtrics.com/API/v3/surveys/{survey_id}/permissions/collaborations
 # 
