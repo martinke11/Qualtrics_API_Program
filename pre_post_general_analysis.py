@@ -14,24 +14,31 @@ from docx.shared import Pt
 import json
 import datetime
 import os
-os.chdir('/Users/kieranmartin/Documents/Qualtrics_API_Program')
 from io import BytesIO
-import QualAPI as qa
 import requests
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 import re
 from collections import Counter
-###############################################################################
-# Load Qualtrics credentials from a JSON file
-with open('/Users/kieranmartin/Documents/Qualtrics_API_Program/qualtrics_credentials.txt') as f:
-    creds = json.load(f)
+import QualAPI as qa
+from config import (
+    set_project_directory,
+    get_qualtrics_credentials_path
+)
+
+PROJECT_DIRECTORY = set_project_directory()
+print("Working directory changed to:", PROJECT_DIRECTORY)
+
+QUALTRICS_CREDENTIALS_PATH = get_qualtrics_credentials_path()
+print("Qualtrics credentials path:", QUALTRICS_CREDENTIALS_PATH)
+with open(QUALTRICS_CREDENTIALS_PATH) as f:
+    qualtrics_creds = json.load(f)
 
 # Extract client ID, secret, and data center from credentials
 client_id = creds.get('ID')
 client_secret = creds.get('Secret')
 data_center = creds.get('DataCenter')
 base_url = f'https://{data_center}.qualtrics.com'
-###############################################################################
+
 # if one survey and pre and post defined by cutoff date:
 survey_name = ""
 # Instead of one survey_name, let's define two:
