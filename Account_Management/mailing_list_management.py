@@ -20,8 +20,6 @@ print("Working directory changed to:", PROJECT_DIRECTORY)
 
 QUALTRICS_CREDENTIALS_PATH = get_qualtrics_credentials_path()
 print("Qualtrics credentials path:", QUALTRICS_CREDENTIALS_PATH)
-with open(QUALTRICS_CREDENTIALS_PATH) as f:
-    qualtrics_creds = json.load(f)
     
 ###############################################################################
 # Load Qualtrics credentials from a JSON file using the defined path
