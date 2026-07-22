@@ -2,7 +2,7 @@
 """
 Created on Mon Apr 21 10:25:08 2025
 
-@author: 484843
+@author: Kieran Martin
 """
 from setuptools import setup
 
