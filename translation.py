@@ -10,14 +10,11 @@ import numpy as np
 import json
 import datetime
 import os
-os.chdir('/Users/kieranmartin/Documents/Qualtrics_API_Program')
 import QualAPI as qa
 import requests
 import re
 from collections import Counter
 from googletrans import Translator
-#pip freeze | grep googletrans
-#!!pip3 install googletrans==4.0.0rc1
 import time
 import emoji
 import warnings
@@ -25,13 +22,23 @@ import httpx
 import nltk
 # nltk.download('all') # nltk.download('vader_lexicon')
 from textblob import TextBlob
+import QualAPI as qa
+from config import (
+    set_project_directory,
+    get_qualtrics_credentials_path
+)
+
 warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 warnings.simplefilter(action='ignore', category=pd.errors.DtypeWarning)
 pd.options.mode.chained_assignment = None 
 
-# Load Qualtrics credentials from a JSON file
-with open('/Users/kieranmartin/Documents/Qualtrics_API_Program/qualtrics_credentials.txt') as f:
-    creds = json.load(f)
+PROJECT_DIRECTORY = set_project_directory()
+print("Working directory changed to:", PROJECT_DIRECTORY)
+
+QUALTRICS_CREDENTIALS_PATH = get_qualtrics_credentials_path()
+print("Qualtrics credentials path:", QUALTRICS_CREDENTIALS_PATH)
+with open(QUALTRICS_CREDENTIALS_PATH) as f:
+    qualtrics_creds = json.load(f)
 
 # Extract client ID, secret, and data center from credentials
 client_id = creds.get('ID')
