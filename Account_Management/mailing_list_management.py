@@ -10,13 +10,19 @@ import QualAPI as qa
 import requests
 import re
 import sys
-PROJECT_DIRECTORY = os.chdir('C:\\Users\\484843\\Documents\\GitHub\\Qualtrics-API-Program')
-if PROJECT_DIRECTORY not in sys.path:
-    sys.path.append(PROJECT_DIRECTORY)
-import QualAPI as qa
-QUALTRICS_CREDENTIALS_PATH = os.path.expanduser(
-    'C:\\Users\\484843\\Documents\\GitHub\\Qualtrics-API-Program\\copa_qualtrics_credentials.txt'
+from config import (
+    set_project_directory,
+    get_qualtrics_credentials_path
 )
+
+PROJECT_DIRECTORY = set_project_directory()
+print("Working directory changed to:", PROJECT_DIRECTORY)
+
+QUALTRICS_CREDENTIALS_PATH = get_qualtrics_credentials_path()
+print("Qualtrics credentials path:", QUALTRICS_CREDENTIALS_PATH)
+with open(QUALTRICS_CREDENTIALS_PATH) as f:
+    qualtrics_creds = json.load(f)
+    
 ###############################################################################
 # Load Qualtrics credentials from a JSON file using the defined path
 with open(QUALTRICS_CREDENTIALS_PATH) as f:
