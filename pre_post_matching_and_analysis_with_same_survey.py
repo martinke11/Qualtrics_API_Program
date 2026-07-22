@@ -43,13 +43,13 @@ pd.set_option('display.max_colwidth', None)  # Display full column content
 pd.set_option('display.width', 1000)  # Set a large width for the display
 
 # Extract client ID, secret, and data center from credentials
-client_id = creds.get('ID')
-client_secret = creds.get('Secret')
-data_center = creds.get('DataCenter')
+client_id = qualtrics_creds.get('ID')
+client_secret = qualtrics_creds.get('Secret')
+data_center = qualtrics_creds.get('DataCenter')
 base_url = f'https://{data_center}.qualtrics.com'
 
 # if one survey and pre and post defined by cutoff date:
-survey_name = "Lifestyle Survey -Fitness Programming (Adult)"
+survey_name = ""
 
 grant_type = 'client_credentials'
 scope = 'read:surveys read:survey_responses'
