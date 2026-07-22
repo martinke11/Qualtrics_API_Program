@@ -33,7 +33,6 @@ print("Qualtrics credentials path:", QUALTRICS_CREDENTIALS_PATH)
 with open(QUALTRICS_CREDENTIALS_PATH) as f:
     qualtrics_creds = json.load(f)
     
-###############################################################################
 # Extract client ID, secret, and data center from credentials
 client_id = creds.get('ID')
 client_secret = creds.get('Secret')
